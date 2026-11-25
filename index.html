@@ -483,7 +483,8 @@ function openPlant(id){if(cropFor!==id){cropRep=null;cropFor=id}
     $('#shY').onclick=async()=>{if(!guard())return;try{await db.doc('plants/'+id).delete();for(const t of tasks.filter(t=>t.plantId===id))await db.doc('tasks/'+t.id).update({plantId:null});closeSheet();toast('Pianta eliminata')}catch(e){fail(e)}}};
 }
 function plantForm(p,pt,kind){
-  if(!guard())return;const v=p||{name:'',kind:kind||'',interval:-1,age:'adulto',x:pt.x,y:pt.y,notes:''};
+  if(!guard())return;let lastK='';try{lastK=localStorage.getItem('campo-lastkind')||''}catch(e){}
+  const v=p||{name:'',kind:kind||(ptOf(lastK)&&lastK!=='orto'?lastK:''),interval:-1,age:'adulto',x:pt.x,y:pt.y,notes:''};
   const FR=[[-1,'Automatica: consigliata per stagione e meteo']].concat(FREQ);const fr=FR.some(f=>f[0]===+v.interval)?FR:FREQ.concat([[+v.interval,'Ogni '+(+v.interval)+' giorni']]);
   sheet(head(p?(p.kind==='orto'?'Modifica orto':'Modifica pianta'):(v.kind==='orto'?'Nuovo orto':'Nuova pianta'))+`<form id="pf">
   <label for="fK">Pianta</label><select id="fK" required><option value="">Scegli…</option>${PT.map(t=>`<option value="${t[0]}"${t[0]===v.kind?' selected':''}>${t[1]}</option>`).join('')}${v.kind&&!ptOf(v.kind)?`<option value="${esc(v.kind)}" selected>${esc(v.kind)}</option>`:''}</select>
@@ -499,10 +500,12 @@ function plantForm(p,pt,kind){
     $('#fHint').textContent=`Consiglio per ${MESI[new Date().getMonth()]}: ${a.iv?'ogni '+(a.iv===1?'giorno':a.iv+' giorni'):'di solito non serve innaffiare'}, circa ${a.lit} litri${a.per==='m²'?' per m²':''}.`};
   $('#fA').onchange=hint;$('#fI').onchange=hint;
   shIn.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{const[a,c]=b.dataset.ps.split('x');$('#fBw').value=a;$('#fBh').value=c});
-  const autoName=k=>{const t=ptOf(k);if(!t)return '';const n=plants.filter(q=>q.kind===k&&(!p||q.id!==p.id)).length+1;return t[1]+' '+n};
-  const syncK=()=>{const k=$('#fK').value;$('#fN').placeholder=autoName(k)||'es. Ulivo vicino al cancello';hint()};hint();
-  $('#fK').onchange=syncK;if(!p){syncK();$('#fK').focus()}
+  const autoName=k=>{const t=ptOf(k);if(!t)return '';const re=new RegExp('^'+t[1]+' (\\d+)$','i');let mx=0;for(const q of allP)if(q.fieldId===fid&&(!p||q.id!==p.id)){const m=String(q.name||'').match(re);if(m)mx=Math.max(mx,+m[1])}return t[1]+' '+(mx+1)};
+  let nameAuto=!p||!$('#fN').value;$('#fN').oninput=()=>{nameAuto=!$('#fN').value};
+  const syncK=()=>{const k=$('#fK').value;if(nameAuto&&!p){$('#fN').value=autoName(k)}$('#fN').placeholder='es. Ulivo vicino al cancello';hint()};hint();
+  $('#fK').onchange=syncK;if(!p){syncK();($('#fK').value?$('#pf button[type=submit]'):$('#fK')).focus()}
   $('#pf').onsubmit=async e=>{e.preventDefault();const k=$('#fK').value;if(!k)return;
+    try{localStorage.setItem('campo-lastkind',k)}catch(e){}
     const d={kind:k,name:$('#fN').value.trim()||autoName(k)||ptName(k),interval:Math.max(-1,+$('#fI').value||0),age:isTree(k)?$('#fA').value:null,...(k==='orto'?{w:Math.max(.5,+$('#fBw').value||4),h:Math.max(.5,+$('#fBh').value||2)}:{}),notes:$('#fO').value.trim()};
     try{if(p){await db.doc('plants/'+p.id).update(d);openPlant(p.id)}
       else{const w=$('#fW').checked,at=new Date().toISOString();const r=await db.collection('plants').add({...d,x:v.x,y:v.y,fieldId:fid,createdAt:at,createdBy:uid,lastWatered:w?at:null,lastBy:w?uid:null});
