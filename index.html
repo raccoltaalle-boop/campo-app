@@ -131,6 +131,10 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
 .presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .k-wait .dot{fill:var(--water)}i.wait,.dotc.wait{background:var(--water)}.st-wait{color:var(--water)}
 .status.k-wait{background:light-dark(#e7f1fc,#132538)}
+.alert{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:10px 8px 10px 14px;margin-bottom:8px;border-left:6px solid;background:var(--panel);border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-size:15px}
+.alert.l1{border-left-color:#e8b400;background:light-dark(#fff9e0,#2e2810)}.alert.l2{border-left-color:#ef7d00;background:light-dark(#fff0e0,#33220f)}.alert.l3{border-left-color:#d62b2b;background:light-dark(#fde6e6,#3a1515)}
+.alert div{flex:1}.alert b{display:block}.alert small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.alert button{min-width:36px;min-height:36px;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;border-radius:18px}
 .wx{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px}
 .wx b{font-weight:700}.wx .sp{flex:1}
 .adv{border-left:4px solid var(--leaf);background:light-dark(#f1f7ee,#15241a);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;font-size:15px}
@@ -165,6 +169,7 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
 <div class="notewrap"><div class="note" id="note" hidden></div></div>
 <main id="main">
   <section id="v-mappa">
+    <div id="alerts"></div>
     <div class="tools">
       <button class="btn primary" id="bAdd">+ Pianta</button>
       <button class="btn primary" id="bBed">+ Orto</button>
@@ -177,6 +182,7 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
     <div class="legend"><span><i></i>A posto</span><span><i class="today"></i>Da innaffiare oggi</span><span><i class="late"></i>In ritardo</span><span><i class="never"></i>Mai innaffiata</span><span><i class="wait"></i>Pioggia in arrivo</span><span id="lgIcons"></span><span id="gridTxt">Griglia ogni 10 m</span></div>
   </section>
   <section id="v-da-fare" hidden>
+    <div id="alerts2"></div>
     <h2>Da innaffiare</h2>
     <ul class="list" id="todoWater"></ul>
     <div class="row" id="allRow" hidden><button class="btn" id="bAll">Segna tutte innaffiate</button></div>
@@ -302,12 +308,13 @@ function pst(p){
   return{k:'ok',t:(n===1?'Prossima: domani':'Prossima tra '+n+' giorni')+(rain?' (ha piovuto)':''),n};
 }
 async function loadWx(f,force){
-  if(!f||f.lat==null||f.lon==null)return;const key='campo-wx-'+f.id+'-'+f.lat+','+f.lon;
+  if(!f||f.lat==null||f.lon==null)return;const key='campo-wx2-'+f.id+'-'+f.lat+','+f.lon;
   if(!force){const c=wx[f.id];if(c&&c.key===key&&Date.now()-c.at<3*36e5)return;
     try{const j=JSON.parse(localStorage.getItem(key)||'null');if(j&&Date.now()-j.at<3*36e5){wx[f.id]=j;refresh();return}}catch(e){}}
-  try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${+f.lat}&longitude=${+f.lon}&daily=precipitation_sum,temperature_2m_max&past_days=35&forecast_days=4&timezone=auto`;
+  try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${+f.lat}&longitude=${+f.lon}&daily=precipitation_sum,temperature_2m_max,wind_gusts_10m_max,weather_code&hourly=precipitation&past_days=35&forecast_days=4&timezone=auto`;
     const res=await fetch(u);if(!res.ok)throw 0;const j=await res.json();const D=j.daily||{};
-    const days=(D.time||[]).map((d,i)=>({d:String(d),rain:+(D.precipitation_sum||[])[i]||0,tmax:+(D.temperature_2m_max||[])[i]||0}));
+    const H=j.hourly||{},hmax={};(H.time||[]).forEach((t,i)=>{const k=String(t).slice(0,10),v=+(H.precipitation||[])[i]||0;if(!(k in hmax)||v>hmax[k])hmax[k]=v});
+    const days=(D.time||[]).map((d,i)=>({d:String(d),rain:+(D.precipitation_sum||[])[i]||0,tmax:+(D.temperature_2m_max||[])[i]||0,gust:+(D.wind_gusts_10m_max||[])[i]||0,code:+(D.weather_code||[])[i]||0,rainH:hmax[String(d)]||0}));
     wx[f.id]={key,at:Date.now(),days};try{localStorage.setItem(key,JSON.stringify(wx[f.id]))}catch(e){}
   }catch(e){wx[f.id]={key,at:Date.now(),err:true}}
   refresh();
@@ -540,7 +547,7 @@ function applyField(){
   plants=allP.filter(p=>p.fieldId===fid);tasks=allT.filter(t=>t.fieldId===fid);log=allL.filter(l=>l.fieldId===fid);
   const none=layout();
   $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');$('#fKind').textContent=f?kindName(f.kind)+' · '+L+' × '+W+' m':'Terreno';
-  refresh();if(f)loadWx(f);
+  refresh();if(f){loadWx(f);if(f.lat!=null)loadAlerts()}
 }
 const lgDone=(()=>{const el=document.getElementById('lgIcons');if(el)el.innerHTML=[['ulivo','Ulivo'],['albero','Altri alberi'],['fiori','Fiori'],['orto','Orto']].map(([k,t])=>`<span class="lg"><svg viewBox="-2 -2 4 4"><g class="pin k-ok">${pinIcon(k)}</g></svg>${t}</span>`).join(' ');return 1})();
 const kindIco=k=>({campo:'<path d="M3 26h28M9 26V14m0 0c-4 0-5-6 0-8 5 2 4 8 0 8Zm16 12V12m0 0c-5 0-6-7 0-9 6 2 5 9 0 9Z"/>',orto:'<path d="M4 26h26M8 26c0-5 2-8 5-9m-5 9c4 0 6-3 5-9m6 9c0-6 3-9 7-10-1 5-3 9-7 10Z"/>',giardino:'<path d="M17 26v-9m0 0a4 4 0 1 1 4-4 4 4 0 1 1-8 0 4 4 0 0 1 4 4ZM4 26h26"/>',frutteto:'<path d="M17 26V15m-7-1a7 7 0 1 1 14 0c0 4-3 5-7 5s-7-1-7-5Zm3-1h.01M20 11h.01M4 26h26"/>',vaso:'<path d="M10 18h14l-2 9H12Zm7 0v-6m0 0c-4 0-5-5-1-7 2 2 3 6 1 7Z"/>',altro:'<rect x="5" y="9" width="24" height="16" rx="2"/><path d="M5 17h24M17 9v16"/>'}[k]||'');
@@ -706,8 +713,52 @@ function renderLog(){
   $('#logList').innerHTML=groups.map(g=>{const n=dd(new Date(),pYmd(g.k));const t=n===0?'Oggi':n===1?'Ieri':pYmd(g.k).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
     return`<div class="day">${esc(t)}</div><ul class="list">${g.items.map(l=>`<li><span class="time">${esc(hm(l.at))}</span><button class="item"${l.plantId&&byId(l.plantId)?` data-open="${esc(l.plantId)}"`:''}><b>${l.type==='water'?'Innaffiata: '+esc(l.label):esc(l.label)}</b><span>${esc(nameOf(l.by))}</span></button></li>`).join('')}</ul>`}).join('');
 }
-function renderStats(){const w=plants.filter(needs).length,o=fields.filter(f=>f.id!==fid).reduce((a,f)=>a+fNeeds(f),0);$('#stats').textContent=(plants.length?`${plants.length===1?'1 pianta':plants.length+' piante'} · ${w?w+' da innaffiare':'tutte a posto'}`:'Nessuna pianta ancora')+(o?` · ${o} negli altri terreni`:'')}
-function refresh(){renderWx();drawField();renderTodo();renderPlants();renderLog();renderStats();if(detail&&!sh.hidden)detail();
+
+/* ---------- avvisi meteo ---------- */
+let ALR=null,alrAt=0;
+async function loadAlerts(){
+  if(Date.now()-alrAt<36e5&&ALR)return;alrAt=Date.now();
+  try{const c=JSON.parse(localStorage.getItem('campo-allerte')||'null');if(c&&Date.now()-c.at<36e5){ALR=c.data;refresh();return}}catch(e){}
+  try{const r=await fetch('https://raw.githubusercontent.com/raccoltaalle-boop/campo-app/allerte/allerte.json?t='+Math.floor(Date.now()/6e5));if(!r.ok)throw 0;ALR=await r.json();
+    try{localStorage.setItem('campo-allerte',JSON.stringify({at:Date.now(),data:ALR}))}catch(e){}refresh()}catch(e){}
+}
+const ringIn=(x,y,R)=>{let c=false;for(let i=0,j=R.length-1;i<R.length;j=i++){const[xi,yi]=R[i],[xj,yj]=R[j];if((yi>y)!==(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)c=!c}return c};
+function dpcZone(lat,lon){if(!ALR||!ALR.zones)return null;
+  return ALR.zones.find(z=>z.b&&lon>=z.b[0]&&lon<=z.b[2]&&lat>=z.b[1]&&lat<=z.b[3]&&(z.p||[]).some(poly=>poly[0]&&ringIn(lon,lat,poly[0])&&!poly.slice(1).some(h=>ringIn(lon,lat,h))))||null}
+const dayLbl=n=>n===0?'Oggi':n===1?'Domani':'Dopodomani';
+function alertsFor(f){
+  const out=[];if(!f||f.lat==null)return out;const today=ymd(new Date());
+  const w=wx[f.id];
+  if(w&&w.days)w.days.filter(x=>x.d>=today).slice(0,3).forEach(x=>{const n=dd(pYmd(x.d),new Date()),when=dayLbl(n),src='Previsioni Open-Meteo';
+    const mm=Math.round(x.rain),h=Math.round(x.rainH);
+    if(mm>=60||h>=30)out.push({l:3,when,n,t:'Piogge torrenziali',x:`Previsti ${mm} mm${h?`, fino a ${h} mm in un'ora`:''}. Possibili allagamenti: controlla scoli e fossi.`,src});
+    else if(mm>=30||h>=10)out.push({l:2,when,n,t:'Piogge forti',x:`Previsti ${mm} mm${h?`, fino a ${h} mm in un'ora`:''}.`,src});
+    const g=Math.round(x.gust);
+    if(g>=90)out.push({l:3,when,n,t:'Vento molto forte',x:`Raffiche fino a ${g} km/h: lega o ripara le piante giovani e metti al sicuro attrezzi e teli.`,src});
+    else if(g>=60)out.push({l:2,when,n,t:'Vento forte',x:`Raffiche fino a ${g} km/h: controlla tutori e legature.`,src});
+    if(x.code===96||x.code===99)out.push({l:2,when,n,t:'Temporali con grandine',x:'Possibile grandine: proteggi orto e piante delicate se puoi.',src});
+    else if(x.code===95)out.push({l:1,when,n,t:'Temporali',x:'Previsti temporali.',src});
+  });
+  const z=dpcZone(+f.lat,+f.lon);
+  if(z&&ALR){const issue=ALR.issued?ymd(new Date(ALR.issued)):today,col=['','GIALLA','ARANCIONE','ROSSA'],types=ALR.types||['idraulico','idrogeologico','temporali'];
+    [['t',0],['d',1]].forEach(([k,off])=>{const L=z[k];if(!L)return;const day=ymd(new Date(pYmd(issue).getTime()+off*DAY+36e5));const n=dd(pYmd(day),new Date());if(n<0||n>2)return;
+      const mx=Math.max(...L);if(mx<1)return;const why=types.filter((t,i)=>L[i]>=1).map((t,i)=>t).join(', ');
+      out.push({l:mx,when:dayLbl(n),n,t:'Allerta '+col[mx]+' della Protezione Civile',x:`Zona “${z.n}”: rischio ${why}.`,src:ALR.name||'Bollettino Protezione Civile'})})}
+  return out.sort((a,b)=>a.n-b.n||b.l-a.l);
+}
+const dismissed=()=>{try{return JSON.parse(localStorage.getItem('campo-avvisi-chiusi')||'{}')}catch(e){return{}}};
+function renderAlerts(){
+  const f=curF(),list=alertsFor(f),ds=dismissed(),today=ymd(new Date());
+  const vis=list.filter(a=>!ds[(f&&f.id)+'|'+today+'|'+a.when+'|'+a.t]);
+  const html=vis.map(a=>`<div class="alert l${a.l}" role="alert"><div><b>${esc(a.when)} · ${esc(a.t)}</b>${esc(a.x)}<small>${esc(a.src)}</small></div><button data-dis="${esc(a.when+'|'+a.t)}" aria-label="Nascondi avviso">×</button></div>`).join('');
+  $('#alerts').innerHTML=html;$('#alerts2').innerHTML=html;
+  document.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{const d=dismissed();d[(f&&f.id)+'|'+today+'|'+b.dataset.dis]=1;
+    for(const k in d)if(k.split('|')[1]<today)delete d[k];try{localStorage.setItem('campo-avvisi-chiusi',JSON.stringify(d))}catch(e){}renderAlerts()});
+  return vis.length;
+}
+
+function renderStats(){const w=plants.filter(needs).length,o=fields.filter(f=>f.id!==fid).reduce((a,f)=>a+fNeeds(f),0);$('#stats').textContent=(plants.length?`${plants.length===1?'1 pianta':plants.length+' piante'} · ${w?w+' da innaffiare':'tutte a posto'}`:'Nessuna pianta ancora')+(o?` · ${o} negli altri terreni`:'')+(alertsFor(curF()).length?` · ⚠ avvisi meteo`:'')}
+function refresh(){renderWx();const nAl=renderAlerts();drawField();renderTodo();renderPlants();renderLog();renderStats();if(detail&&!sh.hidden)detail();
   resolveNames([...plants.map(p=>p.lastBy),...log.map(l=>l.by),...tasks.map(t=>t.doneBy)])}
 async function resolveNames(ids){if(!user)return;const need=[...new Set(ids)].filter(i=>i&&i!==uid&&!people[i]&&!(i in names));if(!need.length)return;need.forEach(i=>names[i]='');
   try{const ps=await user.profiles(need);let ch=false;for(const i of need){const n=ps&&ps[i]&&ps[i].name;if(n){names[i]=n;ch=true}}if(ch)refresh()}catch(e){}}
@@ -728,7 +779,7 @@ show(location.hash.slice(1));
 /* ---------- toast e avvisi ---------- */
 let tt;function toast(msg,undo){const t=$('#toast');$('#toastT').textContent=msg;const b=$('#toastB');b.hidden=!undo;b.onclick=()=>{t.hidden=true;undo&&undo()};t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,undo?7000:3500)}
 function note(msg){const n=$('#note');n.hidden=!msg;n.textContent=msg||''}
-setInterval(()=>{const f=curF();if(f)loadWx(f);refresh()},60000);
+setInterval(()=>{const f=curF();if(f){loadWx(f);if(f.lat!=null)loadAlerts()}refresh()},60000);
 refresh();
 
 

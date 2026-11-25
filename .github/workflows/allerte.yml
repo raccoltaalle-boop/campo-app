@@ -1,0 +1,36 @@
+name: Allerte Protezione Civile
+
+# Ogni 2 ore prende l'ultimo bollettino di criticità della Protezione Civile
+# e pubblica nel branch "allerte" un file compatto che l'app legge.
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  push:
+    branches: [main]
+    paths: ['tools/allerte_dpc.py', '.github/workflows/allerte.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: allerte
+  cancel-in-progress: true
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Scarica e converte il bollettino
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/out
+          python3 tools/allerte_dpc.py /tmp/out/allerte.json
+      - name: Pubblica sul branch allerte
+        run: |
+          cd /tmp/out
+          git init -q && git checkout -q -b allerte && git add -A
+          git -c user.name="campo-bot" -c user.email="campo-bot@users.noreply.github.com" commit -qm "Allerte $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" allerte
