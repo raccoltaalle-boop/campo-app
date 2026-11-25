@@ -728,6 +728,25 @@ function note(msg){const n=$('#note');n.hidden=!msg;n.textContent=msg||''}
 setInterval(()=>{const f=curF();if(f)loadWx(f);refresh()},60000);
 refresh();
 
+
+/* ---------- aggiornamento automatico dell'app ---------- */
+{
+  const live=/\.github\.io$/.test(location.hostname);let base=null,pending=false;
+  const hash=async t=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return String(t.length)}};
+  const latest=async()=>{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;return hash(await r.text())};
+  const busy=()=>!sh.hidden||mode!=='view'||!!E;
+  const apply=()=>{try{sessionStorage.setItem('campo-updated','1')}catch(e){}location.reload()};
+  async function checkUpdate(){
+    if(!live||document.hidden)return;
+    try{const h=await latest();if(base===null){base=h;return}
+      if(h!==base){pending=true;if(!busy())apply();else note('È disponibile una nuova versione dell’app: si aggiorna appena chiudi questa scheda.')}}catch(e){}
+  }
+  setInterval(()=>{if(pending&&!busy())apply()},5000);
+  try{if(sessionStorage.getItem('campo-updated')){sessionStorage.removeItem('campo-updated');setTimeout(()=>toast('App aggiornata all’ultima versione'),800)}}catch(e){}
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate()});
+  setInterval(checkUpdate,15*60*1000);checkUpdate();
+}
+
 /* ---------- dati condivisi ---------- */
 (async()=>{
   const timer=setTimeout(()=>note('I dati del campo non sono ancora raggiungibili: controlla la connessione.'),10000);

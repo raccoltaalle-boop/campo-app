@@ -1,0 +1,1 @@
+Aggiornamenti automatici: da questa versione l'app si installa da sola le nuove versioni.

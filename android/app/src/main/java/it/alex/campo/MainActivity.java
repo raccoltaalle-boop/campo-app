@@ -29,6 +29,7 @@ public class MainActivity extends Activity {
     static final long RELOAD_AFTER_MS = 6L * 60 * 60 * 1000; // ricarica l'interfaccia dopo 6 ore in background
 
     WebView web;
+    Updater updater;
     long loadedAt;
     String geoOrigin;
     GeolocationPermissions.Callback geoCallback;
@@ -80,6 +81,9 @@ public class MainActivity extends Activity {
 
         if (state != null) web.restoreState(state);
         else load();
+
+        updater = new Updater(this);
+        updater.check(true);
     }
 
     boolean online() {
@@ -119,6 +123,7 @@ public class MainActivity extends Activity {
         super.onResume();
         web.onResume();
         if (SystemClock.elapsedRealtime() - loadedAt > RELOAD_AFTER_MS && online()) load();
+        if (updater != null) { updater.resume(); updater.check(false); }
     }
 
     @Override

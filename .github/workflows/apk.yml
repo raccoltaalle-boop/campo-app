@@ -54,6 +54,10 @@ jobs:
           rm -rf /tmp/dist && mkdir -p /tmp/dist
           cp app/build/outputs/apk/release/app-release.apk /tmp/dist/campo.apk
           SHA=$(sha256sum /tmp/dist/campo.apk | cut -d' ' -f1)
+          APK=$(cat app/version.txt)
+          NOTES=$(cat NOVITA.txt 2>/dev/null || true)
+          python3 -c "import json,sys; json.dump({'apk':int(sys.argv[1]),'apkSha256':sys.argv[2],'notes':sys.argv[3],'required':True,'build':int(sys.argv[4])},open('/tmp/dist/version.json','w'),ensure_ascii=False,indent=1)" "$APK" "$SHA" "$NOTES" "${{ github.run_number }}"
+          cat /tmp/dist/version.json
           cat > /tmp/dist/README.md <<MD
           # Campo — APK
           Scarica e installa: [campo.apk](https://github.com/${{ github.repository }}/raw/dist/campo.apk)
