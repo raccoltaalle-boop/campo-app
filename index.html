@@ -813,7 +813,7 @@ refresh();
   const hash=async t=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return String(t.length)}};
   const latest=async()=>{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;return hash(await r.text())};
   const busy=()=>!sh.hidden||mode!=='view'||!!E;
-  const apply=()=>{try{sessionStorage.setItem('campo-updated','1')}catch(e){}location.reload()};
+  const apply=()=>{try{sessionStorage.setItem('campo-updated','1')}catch(e){}location.replace(location.pathname+'?v='+Date.now()+location.hash)};
   async function checkUpdate(){
     if(!live||document.hidden)return;
     try{const h=await latest();if(base===null){base=h;return}
