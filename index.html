@@ -78,7 +78,7 @@ main{max-width:1240px;margin:0 auto;padding:16px max(4vw,12px) 120px}
 .hedge .hl{stroke:var(--ok);fill:none;stroke-linecap:round;stroke-linejoin:round}.hedge.k-today .hl{stroke:var(--today)}.hedge.k-late .hl{stroke:var(--late)}.hedge.k-never .hl{stroke:#8a939b}.hedge.k-wait .hl{stroke:var(--water)}.hedge.on .hb{stroke:var(--water)}
 .hedge text{font:700 1.15px Manrope,sans-serif;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--grass);stroke-width:.4}
 .draftc{fill:rgba(23,105,194,.25);stroke:var(--water)}.draftc.ok{fill:rgba(43,138,62,.3);stroke:var(--ok)}.tagbg{fill:#15211a;opacity:.85}.tag{font:700 1.1px Manrope,sans-serif;fill:#fff;text-anchor:middle}
-.m-hedge #field{touch-action:none}
+#hdl{position:absolute;inset:0;pointer-events:none}.hd{position:absolute;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;border:3px solid var(--water);background:rgba(23,105,194,.12);pointer-events:auto;touch-action:none;cursor:grab}.hd.last{border-width:4px;background:rgba(23,105,194,.22)}.hd.drag{border-color:var(--ok)}
 .draft.ok{stroke:var(--ok)}
 .draft{fill:none;stroke:var(--water);stroke-dasharray:.6 .4;stroke-linecap:round}.draftp{fill:var(--water);stroke:#fff}
 .pin .trunk{fill:none;stroke:#7a5533;stroke-width:.32;stroke-linecap:round}.pin .trunk-r{fill:#7a5533}
@@ -266,7 +266,7 @@ if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostna
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAY=864e5;let L=100,W=30;
-let addKind='',hedgePts=[],hedgeCur=null,hedgeDrag=false,db=null,user=null,uid=null,canWrite=true,fields=[],fid=null,allP=[],allT=[],allL=[],plants=[],tasks=[],log=[],fieldsLoaded=false,mode='view',moveId=null,detail=null,q='';
+let addKind='',hedgePts=[],db=null,user=null,uid=null,canWrite=true,fields=[],fid=null,allP=[],allT=[],allL=[],plants=[],tasks=[],log=[],fieldsLoaded=false,mode='view',moveId=null,detail=null,q='';
 const sel=new Set(),names={},people={},loaded={f:0,p:0,t:0,l:0,u:0};let askedName=false;
 const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
 const ymd=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
@@ -371,17 +371,18 @@ function drawField(){
   for(const p of plants){if(p.kind!=='siepe'||!Array.isArray(p.pts)||p.pts.length<2)continue;const st2=pst(p),P=p.pts.map(q=>toS(+q.x,+q.y).join(',')).join(' '),sw=Math.max(.9,.75*u);
     const mid=p.pts[Math.floor((p.pts.length-1)/2)],mid2=p.pts[Math.floor((p.pts.length-1)/2)+1]||mid,[mx,my]=toS((+mid.x+ +mid2.x)/2,(+mid.y+ +mid2.y)/2);const nm=String(p.name||'');
     g+=`<g class="hedge k-${st2.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}"><polyline class="hx" points="${P}" stroke-width="${2.6*u}"/><polyline class="hb" points="${P}" stroke-width="${sw+.5*u}"/><polyline class="hl" points="${P}" stroke-width="${sw}"/><text x="${mx}" y="${my+2.2*u}" style="font-size:${1.15*u}px;stroke-width:${.4*u}px">${esc(nm.length>16?nm.slice(0,15)+'…':nm)}</text></g>`}
-  if(mode==='hedge'&&(hedgePts.length||hedgeCur)){const all=hedgeCur?hedgePts.concat([hedgeCur]):hedgePts,P=all.map(q=>toS(q.x,q.y));
-    if(P.length>1)g+=`<polyline class="draft${hedgeCur&&hedgeCur.straight?' ok':''}" points="${P.map(q=>q.join(',')).join(' ')}" style="stroke-width:${.5*u}px;stroke-dasharray:${.8*u} ${.5*u}"/>`;
-    g+=hedgePts.map(q=>toS(q.x,q.y)).map(q=>`<circle class="draftp" cx="${q[0]}" cy="${q[1]}" r="${.55*u}" style="stroke-width:${.15*u}px"/>`).join('');
-    if(hedgeCur){const[cx,cy]=toS(hedgeCur.x,hedgeCur.y),last=hedgePts[hedgePts.length-1],seg=last?Math.hypot(hedgeCur.x-last.x,hedgeCur.y-last.y):0,tot=hedgeLen({pts:all});
-      const lbl=last?`${seg.toFixed(1)} m${hedgeCur.straight?' · dritta':''}${hedgePts.length>1?` (tot. ${tot.toFixed(1)} m)`:''}`:'inizio';
-      g+=`<circle class="draftc${hedgeCur.straight?' ok':''}" cx="${cx}" cy="${cy}" r="${.8*u}" style="stroke-width:${.25*u}px"/><g transform="translate(${cx} ${cy-4.2*u}) scale(${u})"><rect class="tagbg" x="${-lbl.length*.4-.6}" y="-1.1" width="${lbl.length*.8+1.2}" height="2" rx=".5"/><text class="tag" y=".45">${esc(lbl)}</text></g>`}}
+  if(mode==='hedge'&&hedgePts.length){const P=hedgePts.map(q=>toS(q.x,q.y));
+    if(P.length>1)g+=`<polyline class="draft${hDragI>=0&&hStraight?' ok':''}" points="${P.map(q=>q.join(',')).join(' ')}" style="stroke-width:${.5*u}px;stroke-dasharray:${.8*u} ${.5*u}"/>`;
+    g+=P.map(q=>`<circle class="draftp" cx="${q[0]}" cy="${q[1]}" r="${.55*u}" style="stroke-width:${.15*u}px"/>`).join('');
+    const li=hDragI>=0?hDragI:(hedgePts.length>1?hedgePts.length-1:-1);
+    if(li>=0){const q=hedgePts[li],ref=hedgePts[li-1]||hedgePts[li+1],seg=ref?Math.hypot(q.x-ref.x,q.y-ref.y):0,tot=hedgeLen({pts:hedgePts}),[cx,cy]=toS(q.x,q.y);
+      const lbl=`${seg.toFixed(1)} m${hDragI>=0&&hStraight?' · dritta':''}${hedgePts.length>2?` (tot. ${tot.toFixed(1)} m)`:''}`;
+      g+=`<g transform="translate(${cx} ${cy-4.6*u}) scale(${u})"><rect class="tagbg" x="${-lbl.length*.4-.6}" y="-1.1" width="${lbl.length*.8+1.2}" height="2" rx=".5"/><text class="tag" y=".45">${esc(lbl)}</text></g>`}}
   for(const p of plants){if(p.kind==='siepe'&&Array.isArray(p.pts)&&p.pts.length>=2)continue;
     const s=pst(p),[x,y]=toS(Number(p.x)||0,Number(p.y)||0),nm=String(p.name||'');
     g+=`<g class="pin k-${s.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}" transform="translate(${x} ${y}) scale(${u})"><circle class="hit" r="2.3"/><circle class="pulse" r="1.2"/><circle class="ring" r="2"/>${pinIcon(p.kind)}<text y="${p.kind==='orto'?2.7:ptOf(p.kind)?3.15:2.9}">${esc(nm.length>14?nm.slice(0,13)+'…':nm)}</text></g>`;
   }
-  svg.innerHTML=g;
+  svg.innerHTML=g;placeHandles();
 }
 let lastNarrow=null;new ResizeObserver(()=>{const n=fw.clientWidth<600;if(n!==lastNarrow||!svg.firstChild){lastNarrow=n;drawField()}}).observe(fw);
 function svgPt(e){const m=svg.getScreenCTM();if(!m)return null;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());let[x,y]=vert?[p.y,p.x]:[p.x,p.y];
@@ -389,32 +390,36 @@ function svgPt(e){const m=svg.getScreenCTM();if(!m)return null;const p=new DOMPo
 svg.addEventListener('click',e=>{
   const pin=e.target.closest('[data-id]'),pt=svgPt(e);
   const shp=shapeOf(curF());if((mode==='add'||mode==='move'||mode==='hedge')&&pt&&shp&&!inPoly(pt,shp)){toast('Tocca un punto dentro la forma del terreno');return}
-  if(mode==='hedge')return;
+  if(mode==='hedge'){if(pt){if(shp&&!inPoly(pt,shp)){toast('Tocca un punto dentro la forma del terreno');return}const q=snapAt(hedgePts.length,pt);hedgePts.push({x:q.x,y:q.y});setMode('hedge',moveId,true)}return}
   if(mode==='add'){const k=addKind;setMode('view');if(pt)plantForm(null,pt,k);return}
   if(mode==='move'){const id=moveId;setMode('view');if(pt)movePlant(id,pt);return}
   if(!pin)return;const id=pin.dataset.id;
   if(mode==='select'){sel.has(id)?sel.delete(id):sel.add(id);renderSel();drawField();return}
   openPlant(id);
 });
-function snapHedge(pt){const last=hedgePts[hedgePts.length-1];if(!pt||!last)return pt;const a=Math.atan2(pt.y-last.y,pt.x-last.x)*180/Math.PI,near=t=>Math.abs(((a-t)%360+540)%360-180)<7;
-  if(near(0)||near(180))return{x:pt.x,y:last.y,straight:1};if(near(90)||near(-90))return{x:last.x,y:pt.y,straight:1};return pt}
-let edgeRaf=0,lastPtrY=0;
-function edgeScroll(){edgeRaf=0;if(!hedgeDrag)return;const z=70,v=lastPtrY<z?-(z-lastPtrY)/4:lastPtrY>innerHeight-z?(lastPtrY-(innerHeight-z))/4:0;if(v){scrollBy(0,v);edgeRaf=requestAnimationFrame(edgeScroll)}}
-svg.addEventListener('pointerdown',e=>{if(mode!=='hedge'||(e.pointerType==='mouse'&&e.button!==0))return;e.preventDefault();hedgeDrag=true;try{svg.setPointerCapture(e.pointerId)}catch(x){}
-  lastPtrY=e.clientY;hedgeCur=snapHedge(svgPt(e));drawField();hedgeHint()});
-svg.addEventListener('pointermove',e=>{if(!hedgeDrag)return;lastPtrY=e.clientY;if(!edgeRaf)edgeRaf=requestAnimationFrame(edgeScroll);hedgeCur=snapHedge(svgPt(e));drawField();hedgeHint()});
-const hedgeUp=e=>{if(!hedgeDrag)return;hedgeDrag=false;const pt=hedgeCur;hedgeCur=null;const shp=shapeOf(curF());
-  if(pt&&shp&&!inPoly(pt,shp)){toast('Il punto è fuori dalla forma del terreno');drawField();return}
-  if(pt&&e.type==='pointerup')hedgePts.push({x:pt.x,y:pt.y});setMode('hedge',moveId,true)};
-svg.addEventListener('pointerup',hedgeUp);svg.addEventListener('pointercancel',hedgeUp);
-function hedgeHint(){const n=hedgePts.length;$('#hint').textContent=hedgeCur&&n?'Sposta il dito per regolare: quando la linea è verde è dritta. Alza il dito per fissare il punto.':hedgeCur?'Alza il dito per fissare l’inizio.':''}
+function snapAt(i,pt){const ref=hedgePts[i-1]||hedgePts[i+1];if(!pt||!ref)return pt;const a=Math.atan2(pt.y-ref.y,pt.x-ref.x)*180/Math.PI,near=t=>Math.abs(((a-t)%360+540)%360-180)<7;
+  if(near(0)||near(180))return{x:pt.x,y:ref.y,straight:1};if(near(90)||near(-90))return{x:ref.x,y:pt.y,straight:1};return pt}
+let hDragI=-1,hStraight=false,hOrig=null,edgeRaf=0,lastPtrY=0;
+const hdl=document.createElement('div');hdl.id='hdl';fw.appendChild(hdl);
+function placeHandles(){
+  if(mode!=='hedge'||!hedgePts.length){if(hdl.firstChild)hdl.innerHTML='';return}
+  if(hdl.children.length!==hedgePts.length)hdl.innerHTML=hedgePts.map((q,i)=>`<div class="hd" data-i="${i}" aria-label="Punto ${i+1} della siepe"></div>`).join('');
+  const m=svg.getScreenCTM(),fr=fw.getBoundingClientRect();if(!m)return;
+  [...hdl.children].forEach((d,i)=>{const[sx,sy]=toS(hedgePts[i].x,hedgePts[i].y),p=new DOMPoint(sx,sy).matrixTransform(m);d.style.left=(p.x-fr.left)+'px';d.style.top=(p.y-fr.top)+'px';d.classList.toggle('last',i===hedgePts.length-1);d.classList.toggle('drag',i===hDragI)});
+}
+function edgeScroll(){edgeRaf=0;if(hDragI<0)return;const z=70,v=lastPtrY<z?-(z-lastPtrY)/4:lastPtrY>innerHeight-z?(lastPtrY-(innerHeight-z))/4:0;if(v){scrollBy(0,v);edgeRaf=requestAnimationFrame(edgeScroll)}}
+hdl.addEventListener('pointerdown',e=>{const h=e.target.closest('.hd');if(!h||mode!=='hedge')return;e.preventDefault();e.stopPropagation();hDragI=+h.dataset.i;hOrig={...hedgePts[hDragI]};hStraight=false;
+  try{h.setPointerCapture(e.pointerId)}catch(x){}lastPtrY=e.clientY;$('#hint').textContent='Trascina: la linea diventa verde quando è dritta. Alza il dito per fissare.';drawField()});
+hdl.addEventListener('pointermove',e=>{if(hDragI<0)return;lastPtrY=e.clientY;if(!edgeRaf)edgeRaf=requestAnimationFrame(edgeScroll);const q=snapAt(hDragI,svgPt(e));if(!q)return;hStraight=!!q.straight;hedgePts[hDragI]={x:q.x,y:q.y};drawField()});
+const hUp=()=>{if(hDragI<0)return;const i=hDragI,shp=shapeOf(curF());hDragI=-1;if(shp&&!inPoly(hedgePts[i],shp)){hedgePts[i]=hOrig;toast('Il punto è fuori dalla forma del terreno')}setMode('hedge',moveId,true)};
+hdl.addEventListener('pointerup',hUp);hdl.addEventListener('pointercancel',hUp);
+hdl.addEventListener('click',e=>e.stopPropagation());
 function setMode(m,id,keep){
-  if(!keep)hedgePts=[];hedgeCur=null;mode=m;moveId=id||null;document.body.className=m==='view'?'':'m-'+m;
+  if(!keep)hedgePts=[];mode=m;moveId=id||null;document.body.className=m==='view'?'':'m-'+m;
   $('#bAdd').classList.toggle('on',m==='add'&&!addKind);$('#bBed').classList.toggle('on',m==='add'&&addKind==='orto');$('#bSel').classList.toggle('on',m==='select');
   $('#bCancel').hidden=!(m==='add'||m==='move'||m==='hedge');$('#bDone').hidden=!(m==='hedge'&&hedgePts.length>=2);$('#bUndoPt').hidden=!(m==='hedge'&&hedgePts.length>=1);$('#bHedge').classList.toggle('on',m==='hedge');
-  $('#hint').textContent=m==='add'?(addKind==='orto'?'Tocca il punto dove sta il centro dell’orto.':'Tocca il punto del campo dove si trova la nuova pianta.'):m==='hedge'?(hedgePts.length===0?'Tocca il punto dove inizia la siepe.':hedgePts.length===1?'Ora appoggia il dito e trascinalo fino alla fine della siepe: vedi linea e lunghezza. Alza il dito per fissarla.':`Siepe di ${hedgeLen({pts:hedgePts}).toFixed(1)} m: trascina per aggiungere un altro tratto, “Annulla punto” per togliere l’ultimo, oppure “Fine”.`):m==='move'?'Tocca la nuova posizione di “'+(byId(id)?.name||'')+'”.':m==='select'?'Tocca le piante che hai innaffiato, poi conferma in basso.':'Tocca una pianta per vedere quando è stata innaffiata.';
+  $('#hint').textContent=m==='add'?(addKind==='orto'?'Tocca il punto dove sta il centro dell’orto.':'Tocca il punto del campo dove si trova la nuova pianta.'):m==='hedge'?(hedgePts.length===0?'Scorri la mappa fino al punto giusto e tocca dove inizia la siepe.':hedgePts.length===1?'Ora tocca dove finisce, più o meno: poi la regoli trascinando il pallino blu.':`Siepe di ${hedgeLen({pts:hedgePts}).toFixed(1)} m. Trascina i pallini blu per regolarla (verde = dritta), tocca altri punti per continuarla, poi “Fine”.`):m==='move'?'Tocca la nuova posizione di “'+(byId(id)?.name||'')+'”.':m==='select'?'Tocca le piante che hai innaffiato, poi conferma in basso.':'Tocca una pianta per vedere quando è stata innaffiata.';
   if(m!=='select'){sel.clear();drawField()}
-  if(m==='hedge')$('#fw').scrollIntoView({block:'nearest'});
   renderSel();
 }
 function renderSel(){$('#selbar').hidden=mode!=='select';$('#selN').textContent=sel.size===1?'1 selezionata':sel.size+' selezionate';$('#bWaterSel').disabled=!sel.size}
