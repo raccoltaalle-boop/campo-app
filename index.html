@@ -26,10 +26,11 @@
 *{box-sizing:border-box;min-width:0}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Manrope,system-ui,sans-serif;overflow-x:clip}
 h1,h2,h3{font-family:Archivo,system-ui,sans-serif;line-height:1.1;margin:0;text-wrap:balance}
-.top{background:var(--leaf);color:#fff;padding:18px max(4vw,16px) 14px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
-.top h1{font-size:clamp(26px,5vw,36px);font-weight:800}
+.top{background:var(--leaf);color:#fff;padding:8px max(4vw,16px) 6px;display:flex;flex-wrap:wrap;gap:0 14px;align-items:baseline;justify-content:space-between;background-size:cover;background-position:center}
+.top.photo{min-height:104px;align-items:flex-end;align-content:flex-end;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.top h1{font-size:clamp(22px,4.5vw,30px);font-weight:800}
 .top p{margin:0;opacity:.85;font-size:14px}
-.fsel{display:flex;align-items:baseline;gap:10px;background:none;border:0;color:#fff;padding:0;cursor:pointer;text-align:left;min-height:44px}
+.fsel{display:flex;align-items:center;gap:8px;background:none;border:0;color:#fff;padding:0;cursor:pointer;text-align:left;min-height:40px}
 .fsel span{font-size:18px;opacity:.8}.fsel small{display:block;font:600 13px Manrope,sans-serif;opacity:.8;margin-bottom:2px}
 .notewrap{max-width:1240px;margin:12px auto 0;padding:0 max(4vw,12px)}.notewrap:has(.note[hidden]){display:none}
 .welcome{max-width:720px;margin:0 auto;padding:28px max(4vw,16px) 80px}
@@ -145,6 +146,12 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
 .alert button{min-width:36px;min-height:36px;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;border-radius:18px}
 .wx{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px}
 .wx b{font-weight:700}.wx .sp{flex:1}
+.wxline{display:flex;flex-wrap:wrap;gap:4px 14px;width:100%;align-items:center}
+.rv{font-weight:700;font-size:14px;padding:2px 10px;border-radius:12px}.rv.ok{background:light-dark(#e3f4e6,#173a22);color:var(--ok)}.rv.mid{background:light-dark(#fff3d6,#3a2f10);color:var(--today)}.rv.no{background:light-dark(#fde6e6,#3a1515);color:var(--late)}
+.wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%;margin-top:6px}
+.wkd{text-align:center;font-size:12px;color:var(--muted)}.wkd b{display:block;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.wkb{height:38px;display:flex;align-items:flex-end;justify-content:center;background:light-dark(#f1f5f8,#152029);border-radius:6px;overflow:hidden}
+.wkb i{display:block;width:60%;background:light-dark(#8cc0ec,#3d7fb8);border-radius:3px 3px 0 0}.wkd.wet .wkb i{background:var(--water)}
 .adv{border-left:4px solid var(--leaf);background:light-dark(#f1f7ee,#15241a);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;font-size:15px}
 .adv b{display:block;margin-bottom:2px}
 #lmap{height:300px;border-radius:12px;margin-top:10px;background:var(--bg);border:1px solid var(--line)}
@@ -153,7 +160,7 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
 </style>
 </head>
 <body>
-<header class="top"><button class="fsel" id="bField" aria-label="Cambia terreno"><div><small id="fKind">Terreno</small><h1 id="fName">I miei terreni</h1></div><span>▾</span></button><p id="stats">Caricamento…</p></header>
+<header class="top"><button class="fsel" id="bField" aria-label="Cambia terreno"><h1 id="fName">I miei terreni</h1><span>▾</span></button><p id="stats">Caricamento…</p></header>
 <section class="welcome" id="welcome" hidden>
   <p class="step">Passo 2 di 4</p>
   <h2>Che cosa vuoi gestire?</h2>
@@ -321,13 +328,13 @@ function pst(p){
   return{k:'ok',t:(n===1?'Prossima: domani':'Prossima tra '+n+' giorni')+(rain?' (ha piovuto)':''),n};
 }
 async function loadWx(f,force){
-  if(!f||f.lat==null||f.lon==null)return;const key='campo-wx2-'+f.id+'-'+f.lat+','+f.lon;
+  if(!f||f.lat==null||f.lon==null)return;const key='campo-wx3-'+f.id+'-'+f.lat+','+f.lon;
   if(!force){const c=wx[f.id];if(c&&c.key===key&&Date.now()-c.at<3*36e5)return;
     try{const j=JSON.parse(localStorage.getItem(key)||'null');if(j&&Date.now()-j.at<3*36e5){wx[f.id]=j;refresh();return}}catch(e){}}
-  try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${+f.lat}&longitude=${+f.lon}&daily=precipitation_sum,temperature_2m_max,wind_gusts_10m_max,weather_code&hourly=precipitation&past_days=35&forecast_days=4&timezone=auto`;
+  try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${+f.lat}&longitude=${+f.lon}&daily=precipitation_sum,temperature_2m_max,wind_gusts_10m_max,weather_code,et0_fao_evapotranspiration&hourly=precipitation&past_days=35&forecast_days=8&timezone=auto`;
     const res=await fetch(u);if(!res.ok)throw 0;const j=await res.json();const D=j.daily||{};
     const H=j.hourly||{},hmax={};(H.time||[]).forEach((t,i)=>{const k=String(t).slice(0,10),v=+(H.precipitation||[])[i]||0;if(!(k in hmax)||v>hmax[k])hmax[k]=v});
-    const days=(D.time||[]).map((d,i)=>({d:String(d),rain:+(D.precipitation_sum||[])[i]||0,tmax:+(D.temperature_2m_max||[])[i]||0,gust:+(D.wind_gusts_10m_max||[])[i]||0,code:+(D.weather_code||[])[i]||0,rainH:hmax[String(d)]||0}));
+    const days=(D.time||[]).map((d,i)=>({d:String(d),rain:+(D.precipitation_sum||[])[i]||0,tmax:+(D.temperature_2m_max||[])[i]||0,gust:+(D.wind_gusts_10m_max||[])[i]||0,et0:+(D.et0_fao_evapotranspiration||[])[i]||0,code:+(D.weather_code||[])[i]||0,rainH:hmax[String(d)]||0}));
     wx[f.id]={key,at:Date.now(),days};try{localStorage.setItem(key,JSON.stringify(wx[f.id]))}catch(e){}
   }catch(e){wx[f.id]={key,at:Date.now(),err:true}}
   refresh();
@@ -338,8 +345,14 @@ function renderWx(){
   const w=wx[f.id];
   if(!w){el.innerHTML='<span>Meteo in caricamento…</span>';return}
   if(w.err){el.innerHTML=`<span>Meteo non raggiungibile da qui${location.protocol==='file:'||/claude/.test(location.hostname)?' (funzionerà nella versione pubblicata su GitHub)':''}. I promemoria usano solo la stagione.</span>`;return}
-  const i=wxInfo(f.id,5),t=i.past.slice(-1)[0];
-  el.innerHTML=`<span>Ultima pioggia: <b>${i.lastAny?esc(rel(i.lastAny.d.toISOString()).replace(/ alle.*/,''))+' ('+i.lastAny.mm+' mm)':'oltre un mese fa'}</b></span><span>Prossimi 2 giorni: <b>${i.soonMm} mm</b></span>${t?`<span>Max oggi: <b>${Math.round(t.tmax)}°</b></span>`:''}${i.hot?'<span class="st-late">Caldo: intervalli accorciati</span>':''}<span class="sp"></span><span class="muted">${esc(f.place||'')}</span>`;
+  const i=wxInfo(f.id,5),t=i.past.slice(-1)[0],today=ymd(new Date());
+  const last7=w.days.filter(x=>x.d<=today).slice(-7),rain7=last7.reduce((a,x)=>a+x.rain,0),et7=last7.reduce((a,x)=>a+(x.et0||0),0);
+  const ratio=et7>0?rain7/et7:(rain7>0?9:0);
+  const verdict=rain7<1?{c:'no',t:'nessuna pioggia: conta solo sulle innaffiature'}:ratio>=1&&rain7>=10?{c:'ok',t:'sufficiente per alberi e orto'}:ratio>=1&&rain7>=5?{c:'ok',t:'sufficiente per orto e fiori, poca per gli alberi'}:ratio>=.5?{c:'mid',t:'in parte: copre circa metà del fabbisogno'}:{c:'no',t:'insufficiente'};
+  const next=w.days.filter(x=>x.d>=today).slice(0,7),mx=Math.max(10,...next.map(x=>x.rain)),wd=['D','L','M','M','G','V','S'];
+  el.innerHTML=`<div class="wxline"><span>Ultimi 7 giorni: <b>${Math.round(rain7)} mm</b> di pioggia${et7?`, ${Math.round(et7)} mm evaporati`:''}</span><span class="rv ${verdict.c}">${esc(verdict.t)}</span>${t?`<span>Max oggi: <b>${Math.round(t.tmax)}°</b></span>`:''}${i.hot?'<span class="st-late">Caldo: intervalli accorciati</span>':''}</div>
+  <div class="wk" aria-label="Pioggia prevista nei prossimi 7 giorni">${next.map((x,k)=>`<div class="wkd${x.rain>=5?' wet':''}"><div class="wkb"><i style="height:${Math.max(2,Math.round(x.rain/mx*100))}%"></i></div><b>${x.rain>=.5?(x.rain<10?x.rain.toFixed(1).replace('.0',''):Math.round(x.rain)):'–'}</b><span>${k===0?'oggi':wd[pYmd(x.d).getDay()]}</span></div>`).join('')}</div>
+  <div class="muted" style="font-size:12px;width:100%">Pioggia prevista in mm per i prossimi 7 giorni · fonte Open-Meteo${f.place?' · '+esc(f.place):''}</div>`;
 }
 const needs=p=>['late','today','never'].includes(pst(p).k);
 function tst(t){if(t.done)return{k:'done',t:'Completata'};const n=dd(pYmd(t.due),new Date());if(n<0)return{k:'late',t:'Scaduta da '+(-n)+' g'};if(n===0)return{k:'today',t:'Oggi'};return{k:'ok',t:n===1?'Domani':'Tra '+n+' giorni',n}}
@@ -596,7 +609,8 @@ function applyField(){
   const f=curF();L=Math.max(1,Number(f&&f.length)||100);W=Math.max(1,Number(f&&f.width)||30);
   plants=allP.filter(p=>p.fieldId===fid);tasks=allT.filter(t=>t.fieldId===fid);log=allL.filter(l=>l.fieldId===fid);
   const none=layout();
-  $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');$('#fKind').textContent=f?kindName(f.kind)+' · '+L+' × '+W+' m':'Terreno';
+  $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');
+  {const top=document.querySelector('.top'),ph=f&&typeof f.photo==='string'&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.photo)?f.photo:'';top.classList.toggle('photo',!!ph);top.style.backgroundImage=ph?`linear-gradient(rgba(0,0,0,.15),rgba(0,0,0,.55)),url("${ph}")`:''}
   refresh();if(f){loadWx(f);if(f.lat!=null)loadAlerts()}
 }
 const lgDone=(()=>{const el=document.getElementById('lgIcons');if(el)el.innerHTML=[['ulivo','Ulivo'],['frutto','Alberi da frutto'],['siepe','Siepi'],['fiori','Fiori'],['orto','Orto']].map(([k,t])=>`<span class="lg"><svg viewBox="-2 -2 4 4"><g class="pin k-ok">${pinIcon(k)}</g></svg>${t}</span>`).join(' ');return 1})();
@@ -614,6 +628,11 @@ function fieldPicker(){
   $('#fNew').onclick=()=>fieldForm(null);
 }
 $('#bField').onclick=()=>{if(db&&fields.length)fieldPicker();else if(db)fieldForm(null)};
+async function shrinkImage(file){
+  const url=URL.createObjectURL(file);try{const img=await new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=url});
+    const W0=1000,sc=Math.min(1,W0/img.naturalWidth),c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);let q=.72,d=c.toDataURL('image/jpeg',q);while(d.length>220000&&q>.35){q-=.1;d=c.toDataURL('image/jpeg',q)}return d}
+  finally{URL.revokeObjectURL(url)}}
 function fieldForm(f,kind){
   if(!guard())return;const k=KINDS.find(x=>x[0]===(f?f.kind:kind))||KINDS[0];const isNew=!f;
   const v=f||{name:'',kind:k[0],length:k[3],width:k[4]};
@@ -621,16 +640,20 @@ function fieldForm(f,kind){
   <label for="gN">Nome</label><input id="gN" required maxlength="50" value="${esc(v.name)}" placeholder="es. Campo di via Roma, Orto di casa">
   <label for="gK">Tipo</label><select id="gK">${(f&&!KINDS.some(x=>x[0]===f.kind)?[[f.kind,kindName(f.kind)]]:[]).concat(KINDS).map(x=>`<option value="${x[0]}"${x[0]===v.kind?' selected':''}>${x[1]}</option>`).join('')}</select>
   <div class="two"><div><label for="gL">Lato lungo (m, circa)</label><input id="gL" type="number" min="1" max="2000" step="0.5" value="${esc(v.length)}"></div><div><label for="gW">Lato corto (m, circa)</label><input id="gW" type="number" min="1" max="2000" step="0.5" value="${esc(v.width)}"></div></div>
-  <p class="muted">Servono solo a fare il foglio a quadretti su cui disegni la forma: bastano misure a occhio.</p>${f?`<div class="row"><button class="btn" type="button" id="gS">Ridisegna la forma</button><button class="btn" type="button" id="gP">Posizione${f.lat!=null?': '+esc(f.place||'impostata'):''}</button></div>`:''}
+  <p class="muted">Servono solo a fare il foglio a quadretti su cui disegni la forma: bastano misure a occhio.</p>
+  <label for="gF">Foto di sfondo del titolo (facoltativa)</label><input id="gF" type="file" accept="image/*"><div class="row" id="gFrow" style="margin-top:8px;align-items:center" ${f&&f.photo?'':'hidden'}><img id="gFimg" alt="Anteprima" style="height:56px;border-radius:8px" src="${f&&f.photo&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.photo)?f.photo:''}"><button class="btn sm" type="button" id="gFx">Togli foto</button></div>${f?`<div class="row"><button class="btn" type="button" id="gS">Ridisegna la forma</button><button class="btn" type="button" id="gP">Posizione${f.lat!=null?': '+esc(f.place||'impostata'):''}</button></div>`:''}
   <div class="row" id="ffAct"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button>${f?'<button class="btn danger" type="button" id="gX">Elimina terreno</button>':''}</div></form>`);
   $('#gN').focus();
+  let photo=f&&f.photo||null;
+  $('#gF').onchange=async()=>{const file=$('#gF').files[0];if(!file)return;try{photo=await shrinkImage(file);$('#gFimg').src=photo;$('#gFrow').hidden=false}catch(e){toast('Foto non leggibile, provane un’altra')}};
+  $('#gFx').onclick=()=>{photo=null;$('#gFrow').hidden=true;$('#gF').value=''};
   if(f){$('#gS').onclick=()=>openEditor(f.id,false);$('#gP').onclick=()=>locForm(f.id)}
   $('#gK').onchange=e=>{if(f)return;const x=KINDS.find(y=>y[0]===e.target.value);$('#gL').value=x[3];$('#gW').value=x[4]};
   if(f)$('#gX').onclick=()=>{const c=allP.filter(p=>p.fieldId===f.id).length;$('#ffAct').innerHTML=`<span>Eliminare “${esc(f.name)}” con ${c} piante e le sue attività?</span><button class="btn danger" type="button" id="gY">Sì, elimina tutto</button><button class="btn" type="button" id="gNo">No</button>`;
     $('#gNo').onclick=()=>fieldForm(f);
     $('#gY').onclick=async()=>{try{for(const p of allP.filter(p=>p.fieldId===f.id))await db.doc('plants/'+p.id).delete();for(const t of allT.filter(t=>t.fieldId===f.id))await db.doc('tasks/'+t.id).delete();await db.doc('fields/'+f.id).delete();if(fid===f.id)fid=null;closeSheet();toast('Terreno eliminato')}catch(e){fail(e)}}};
   $('#ff').onsubmit=async e=>{e.preventDefault();
-    const d={name:$('#gN').value.trim(),kind:$('#gK').value,length:Math.min(2000,Math.max(1,+$('#gL').value||1)),width:Math.min(2000,Math.max(1,+$('#gW').value||1))};
+    const d={photo:photo||null,name:$('#gN').value.trim(),kind:$('#gK').value,length:Math.min(2000,Math.max(1,+$('#gL').value||1)),width:Math.min(2000,Math.max(1,+$('#gW').value||1))};
     if(!d.name)return;
     try{if(f){const sc=(+f.length!==d.length||+f.width!==d.width)&&shapeOf(f);if(sc)d.shape=sc.map(p=>({x:Math.min(d.length,p.x),y:Math.min(d.width,p.y)}));await db.doc('fields/'+f.id).update(d);closeSheet();toast('Terreno aggiornato')}
       else{const r=await db.collection('fields').add({...d,createdAt:new Date().toISOString(),createdBy:uid});fid=r.id;try{localStorage.setItem('campo-fid',r.id)}catch(e){}closeSheet();applyField();show('mappa');openEditor(r.id,true,{...d,id:r.id})}}catch(e){fail(e)}};

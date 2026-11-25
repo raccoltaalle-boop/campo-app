@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.webkit.GeolocationPermissions;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -26,6 +27,7 @@ public class MainActivity extends Activity {
     static final String HOST = "raccoltaalle-boop.github.io";
     static final String URL = "https://" + HOST + "/campo-app/";
     static final int REQ_LOC = 7;
+    static final int REQ_FILE = 8;
     static final long RELOAD_AFTER_MS = 6L * 60 * 60 * 1000; // ricarica l'interfaccia dopo 6 ore in background
 
     WebView web;
@@ -33,6 +35,7 @@ public class MainActivity extends Activity {
     long loadedAt;
     String geoOrigin;
     GeolocationPermissions.Callback geoCallback;
+    ValueCallback<Uri[]> fileCallback;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -77,6 +80,20 @@ public class MainActivity extends Activity {
                             Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOC);
                 }
             }
+
+            // scelta di una foto dalla galleria (es. sfondo del titolo del terreno)
+            @Override
+            public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> cb, FileChooserParams params) {
+                if (fileCallback != null) fileCallback.onReceiveValue(null);
+                fileCallback = cb;
+                try {
+                    startActivityForResult(params.createIntent(), REQ_FILE);
+                } catch (Exception e) {
+                    fileCallback = null;
+                    return false;
+                }
+                return true;
+            }
         });
 
         if (state != null) web.restoreState(state);
@@ -107,6 +124,15 @@ public class MainActivity extends Activity {
                 + "<p><a href='" + URL + "' style='display:inline-block;margin-top:12px;padding:14px 22px;background:#1769c2;color:#fff;border-radius:10px;text-decoration:none'>Riprova</a></p>"
                 + "</body></html>";
         web.loadDataWithBaseURL(URL, html, "text/html", "utf-8", null);
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == REQ_FILE && fileCallback != null) {
+            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
+            fileCallback = null;
+        }
     }
 
     @Override

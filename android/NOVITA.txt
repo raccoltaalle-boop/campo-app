@@ -1,1 +1,1 @@
-Aggiornamenti automatici: da questa versione l'app si installa da sola le nuove versioni.
+Ora puoi scegliere una foto dalla galleria come sfondo del titolo del terreno.
