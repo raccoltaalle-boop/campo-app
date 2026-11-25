@@ -32,7 +32,7 @@ h1,h2,h3{font-family:Archivo,system-ui,sans-serif;line-height:1.1;margin:0;text-
 .top p{margin:0;opacity:.85;font-size:14px}
 .fsel{display:flex;align-items:center;gap:8px;background:none;border:0;color:#fff;padding:0;cursor:pointer;text-align:left;min-height:40px}
 .fsel span{font-size:18px;opacity:.8}.fsel small{display:block;font:600 13px Manrope,sans-serif;opacity:.8;margin-bottom:2px}
-.notewrap{max-width:1240px;margin:12px auto 0;padding:0 max(4vw,12px)}.notewrap:has(.note[hidden]){display:none}
+.notewrap{max-width:1240px;margin:12px auto 0;padding:0 max(4vw,12px)}.notewrap:not(:has(.note:not([hidden]))){display:none}
 .welcome{max-width:720px;margin:0 auto;padding:28px max(4vw,16px) 80px}
 .welcome h2{font-size:clamp(26px,5vw,34px);margin:0 0 6px}
 .kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:18px}
@@ -181,7 +181,7 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
   <button data-v="piante">Piante</button>
   <button data-v="storico">Storico</button>
 </nav>
-<div class="notewrap"><div class="note" id="note" hidden></div></div>
+<div class="notewrap"><div class="note" id="note" hidden></div><div class="note" id="apkNote" hidden></div></div>
 <main id="main">
   <section id="v-mappa">
     <div id="alerts"></div>
@@ -641,7 +641,7 @@ function fieldForm(f,kind){
   <label for="gK">Tipo</label><select id="gK">${(f&&!KINDS.some(x=>x[0]===f.kind)?[[f.kind,kindName(f.kind)]]:[]).concat(KINDS).map(x=>`<option value="${x[0]}"${x[0]===v.kind?' selected':''}>${x[1]}</option>`).join('')}</select>
   <div class="two"><div><label for="gL">Lato lungo (m, circa)</label><input id="gL" type="number" min="1" max="2000" step="0.5" value="${esc(v.length)}"></div><div><label for="gW">Lato corto (m, circa)</label><input id="gW" type="number" min="1" max="2000" step="0.5" value="${esc(v.width)}"></div></div>
   <p class="muted">Servono solo a fare il foglio a quadretti su cui disegni la forma: bastano misure a occhio.</p>
-  <label for="gF">Foto di sfondo del titolo (facoltativa)</label><input id="gF" type="file" accept="image/*"><div class="row" id="gFrow" style="margin-top:8px;align-items:center" ${f&&f.photo?'':'hidden'}><img id="gFimg" alt="Anteprima" style="height:56px;border-radius:8px" src="${f&&f.photo&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.photo)?f.photo:''}"><button class="btn sm" type="button" id="gFx">Togli foto</button></div>${f?`<div class="row"><button class="btn" type="button" id="gS">Ridisegna la forma</button><button class="btn" type="button" id="gP">Posizione${f.lat!=null?': '+esc(f.place||'impostata'):''}</button></div>`:''}
+  <label for="gF">Foto di sfondo del titolo (facoltativa)</label>${shellVer&&shellVer<4?`<p class="note" style="margin:4px 0">Per scegliere una foto serve la versione 4 dell'app: chiudila del tutto e riaprila per aggiornarla, oppure <a href="${APK_URL}">scaricala qui</a>.</p>`:''}<input id="gF" type="file" accept="image/*"${shellVer&&shellVer<4?' hidden':''}><div class="row" id="gFrow" style="margin-top:8px;align-items:center" ${f&&f.photo?'':'hidden'}><img id="gFimg" alt="Anteprima" style="height:56px;border-radius:8px" src="${f&&f.photo&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(f.photo)?f.photo:''}"><button class="btn sm" type="button" id="gFx">Togli foto</button></div>${f?`<div class="row"><button class="btn" type="button" id="gS">Ridisegna la forma</button><button class="btn" type="button" id="gP">Posizione${f.lat!=null?': '+esc(f.place||'impostata'):''}</button></div>`:''}
   <div class="row" id="ffAct"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button>${f?'<button class="btn danger" type="button" id="gX">Elimina terreno</button>':''}</div></form>`);
   $('#gN').focus();
   let photo=f&&f.photo||null;
@@ -857,6 +857,11 @@ refresh();
 
 
 /* ---------- aggiornamento automatico dell'app ---------- */
+const APK_URL='https://github.com/raccoltaalle-boop/campo-app/raw/dist/campo.apk';
+const shellVer=(()=>{const m=navigator.userAgent.match(/CampoApp\/1\.(\d+)/);return m?+m[1]:0})();
+let apkLatest=0;
+async function checkShell(){if(!shellVer)return;try{const r=await fetch('https://raw.githubusercontent.com/raccoltaalle-boop/campo-app/dist/version.json?t='+Math.floor(Date.now()/6e4));const v=await r.json();apkLatest=+v.apk||0;
+  if(apkLatest>shellVer){const n=$('#apkNote');n.hidden=false;n.innerHTML=`È disponibile la versione ${apkLatest} dell'app (hai la ${shellVer}). Chiudi l'app del tutto e riaprila per installarla, oppure <a href="${APK_URL}">scaricala qui</a>.`}}catch(e){}}
 {
   const live=/\.github\.io$/.test(location.hostname);let base=null,pending=false;
   const hash=async t=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return[...new Uint8Array(b)].slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return String(t.length)}};
@@ -871,7 +876,7 @@ refresh();
   setInterval(()=>{if(pending&&!busy())apply()},5000);
   try{if(sessionStorage.getItem('campo-updated')){sessionStorage.removeItem('campo-updated');setTimeout(()=>toast('App aggiornata all’ultima versione'),800)}}catch(e){}
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkUpdate()});
-  setInterval(checkUpdate,15*60*1000);checkUpdate();
+  setInterval(checkUpdate,15*60*1000);checkUpdate();checkShell();
 }
 
 /* ---------- dati condivisi ---------- */
