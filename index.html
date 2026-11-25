@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campo – innaffiatura</title>
+<meta name="theme-color" content="#1e4d31">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Campo">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: pratico e calmo, un quaderno di campo condiviso
+   IDEA: la planimetria del terreno in scala, con le piante segnate come cartellini colorati
+   PICTURE: il campo 100×30 m stesso, con i segnaposto che cambiano colore con lo stato
+   COLOUR+TYPE: verde foglia, prato, blu acqua come accento; Archivo + Manrope
+   LAYOUT: barra in alto, schede, mappa per prima, scheda dal basso per i dettagli */
+:root{color-scheme:light dark;
+--bg:light-dark(#f3f5ef,#0e1510);--panel:light-dark(#fff,#162019);--ink:light-dark(#15211a,#e4ede6);--muted:light-dark(#56665c,#97a89c);
+--line:light-dark(#dde4da,#27342b);--leaf:light-dark(#1e4d31,#132e1e);--grass:light-dark(#bfdba9,#22402b);--row:light-dark(#a6ca8d,#2d4e35);
+--water:light-dark(#1769c2,#5aa9f0);--ok:light-dark(#2b8a3e,#51cf66);--today:light-dark(#d08700,#fcc419);--late:light-dark(#c92a2a,#ff6b6b)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Manrope,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:Archivo,system-ui,sans-serif;line-height:1.1;margin:0;text-wrap:balance}
+.top{background:var(--leaf);color:#fff;padding:18px max(4vw,16px) 14px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;justify-content:space-between}
+.top h1{font-size:clamp(26px,5vw,36px);font-weight:800}
+.top p{margin:0;opacity:.85;font-size:14px}
+.fsel{display:flex;align-items:baseline;gap:10px;background:none;border:0;color:#fff;padding:0;cursor:pointer;text-align:left;min-height:44px}
+.fsel span{font-size:18px;opacity:.8}.fsel small{display:block;font:600 13px Manrope,sans-serif;opacity:.8;margin-bottom:2px}
+.notewrap{max-width:1240px;margin:12px auto 0;padding:0 max(4vw,12px)}.notewrap:has(.note[hidden]){display:none}
+.welcome{max-width:720px;margin:0 auto;padding:28px max(4vw,16px) 80px}
+.welcome h2{font-size:clamp(26px,5vw,34px);margin:0 0 6px}
+.kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:18px}
+.kind{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;min-height:96px}
+.kind b{display:block;font-size:17px;margin-bottom:4px}.kind span{font-size:14px;color:var(--muted)}
+.kind svg{width:34px;height:34px;display:block;margin-bottom:8px}
+.step{font:700 13px Manrope,sans-serif;color:var(--water);margin:0 0 6px}
+.editor{max-width:1240px;padding-top:16px}.editor h2{font-size:clamp(22px,4.5vw,30px)}.editor .tools{margin:8px 0 0}.editor .tools .btn{flex:1 1 auto}
+.edwrap{margin:6px auto 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px}
+#ed{display:block;width:100%;height:100%;touch-action:none;user-select:none;cursor:crosshair}
+.edbg{fill:light-dark(#f7f9f4,#121b15);stroke:var(--line);stroke-width:calc(.15px*var(--u,1));stroke-dasharray:calc(.6px*var(--u,1))}
+.edline{fill:none;stroke:var(--water);stroke-width:calc(.35px*var(--u,1));stroke-linejoin:round}
+.edpoly{stroke:var(--leaf);stroke-width:calc(.3px*var(--u,1));stroke-linejoin:round}
+.vx{fill:#fff;stroke:var(--water);stroke-width:calc(.35px*var(--u,1));cursor:grab}.vx.first{fill:var(--water)}
+.mid{fill:var(--water);opacity:.55;cursor:copy}.midt{font:700 calc(1.3px*var(--u,1)) Manrope,sans-serif;fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.edge{stroke:var(--leaf);stroke-width:calc(.3px*var(--u,1))}
+.flist li.cur{background:light-dark(#eef6ff,#14243a)}
+.tabs{position:sticky;top:0;z-index:5;display:flex;gap:4px;overflow-x:auto;background:var(--leaf);padding:0 max(4vw,12px)}
+.tabs button{flex:none;background:none;border:0;color:#fff;opacity:.75;font:600 15px Manrope,sans-serif;padding:12px 12px;min-height:44px;border-bottom:3px solid transparent;cursor:pointer}
+.tabs button.on{opacity:1;border-color:#9fe0a8}
+.badge{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:10px;background:var(--late);color:#fff;font-size:12px;line-height:20px;text-align:center}
+main{max-width:1240px;margin:0 auto;padding:16px max(4vw,12px) 120px}
+.note{background:light-dark(#fff4d6,#3a2f10);border:1px solid light-dark(#f0d48a,#6b5418);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:15px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.hint{font-size:15px;color:var(--muted);flex:1 1 200px}
+.btn{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 15px Manrope,sans-serif;cursor:pointer}
+.btn:focus-visible,.tabs button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.item:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.btn.on{border-color:var(--water);color:var(--water)}
+.primary{background:var(--water);border-color:var(--water);color:#fff}
+.danger{color:var(--late)}
+.sm{min-height:36px;padding:0 12px;font-size:14px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.fieldwrap{position:relative;width:100%;border-radius:14px;background:var(--panel);border:1px solid var(--line);padding:6px}
+#field{display:block;width:100%;height:100%;touch-action:manipulation;user-select:none}
+.m-add #field,.m-move #field{cursor:crosshair}
+.soil{fill:var(--grass)}.grid{stroke:var(--row);stroke-width:calc(.12px*var(--u,1))}.ax{font:600 calc(1.1px*var(--u,1)) Manrope,sans-serif;fill:var(--muted);text-anchor:middle;dominant-baseline:middle}
+.pin{cursor:pointer}.pin .hit{fill:transparent}
+.pin .dot{fill:var(--ok);stroke:light-dark(#fff,#0e1510);stroke-width:.35}
+.k-today .dot{fill:var(--today)}.k-late .dot{fill:var(--late)}.k-never .dot{fill:#8a939b}
+.pin .ring{fill:none;stroke:var(--water);stroke-width:.45;opacity:0}.pin.on .ring{opacity:1}
+.pin text.sym{font:800 1.25px Manrope,sans-serif;fill:#fff;stroke:none;dominant-baseline:central}
+.pin text{font:700 1.15px Manrope,sans-serif;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--grass);stroke-width:.4}
+.k-late .pulse{fill:none;stroke:var(--late);stroke-width:.25;transform-box:fill-box;transform-origin:center;animation:p 2.2s ease-out infinite}
+@keyframes p{from{transform:scale(1);opacity:.9}to{transform:scale(2.2);opacity:0}}
+@media (prefers-reduced-motion:reduce){.k-late .pulse{animation:none;opacity:0}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--muted);margin-top:10px}
+.legend i,.dotc{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--ok)}
+i.today,.dotc.today{background:var(--today)}i.late,.dotc.late{background:var(--late)}i.never,.dotc.never{background:#8a939b}
+.selbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:8;display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.2);max-width:calc(100% - 24px);flex-wrap:wrap}
+h2{font-size:22px;margin:22px 0 10px}
+.list{list-style:none;margin:0;padding:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.list li{display:flex;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0}
+.item{flex:1;cursor:pointer;background:none;border:0;color:inherit;text-align:left;font:inherit;padding:2px 0}
+.item b{display:block;font-size:16px}.item span{display:block;font-size:14px;color:var(--muted)}
+.empty{padding:18px 14px;color:var(--muted);font-size:15px}
+.st-late{color:var(--late)}.st-today{color:var(--today)}
+.rep{font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;margin-left:6px;color:var(--muted);white-space:nowrap}
+.search{width:100%;max-width:420px;margin-bottom:10px}
+.day{font:700 14px Manrope,sans-serif;color:var(--muted);margin:18px 0 6px}
+.time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:14px;white-space:nowrap;width:46px}
+details summary{cursor:pointer;color:var(--muted);margin:18px 0 8px;font-weight:600}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.4);display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sheet-in{background:var(--panel);width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px 18px 28px}
+.sh-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.sh-head h3{font-size:24px}.muted{color:var(--muted);margin:2px 0 0;font-size:14px}
+.x{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--ink);font-size:22px;cursor:pointer;flex:none}
+.status{border-radius:12px;padding:12px 14px;margin-bottom:12px;background:light-dark(#eaf6ec,#17301e)}
+.status b{display:block;font-size:18px}.status span{font-size:14px;color:var(--muted)}
+.status.k-today{background:light-dark(#fff3d6,#3a2f10)}.status.k-late,.status.k-never{background:light-dark(#fde8e8,#3a1616)}
+.big{width:100%;min-height:52px;font-size:17px}
+dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;margin:14px 0;font-size:15px}dt{color:var(--muted)}dd{margin:0}
+h4{margin:16px 0 6px;font-size:15px}
+.mini{list-style:none;padding:0;margin:0;font-size:14px}.mini li{padding:5px 0;border-top:1px solid var(--line)}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+form label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-height:44px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;background:#15211a;color:#fff;border-radius:12px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:calc(100% - 24px)}
+.toast[hidden],.selbar[hidden],[hidden]{display:none!important}.toast button{background:none;border:0;padding:0 8px;white-space:nowrap;color:#9fd2ff;font:700 15px Manrope,sans-serif;min-height:36px;cursor:pointer}
+/* leaflet 1.9.4 (BSD-2) */ .leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas, .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer { position: absolute; left: 0; top: 0; } .leaflet-container { overflow: hidden; } .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-user-drag: none; } .leaflet-tile::selection { background: transparent; } .leaflet-safari .leaflet-tile { image-rendering: -webkit-optimize-contrast; } .leaflet-safari .leaflet-tile-container { width: 1600px; height: 1600px; -webkit-transform-origin: 0 0; } .leaflet-marker-icon, .leaflet-marker-shadow { display: block; } .leaflet-container .leaflet-overlay-pane svg { max-width: none !important; max-height: none !important; } .leaflet-container .leaflet-marker-pane img, .leaflet-container .leaflet-shadow-pane img, .leaflet-container .leaflet-tile-pane img, .leaflet-container img.leaflet-image-layer, .leaflet-container .leaflet-tile { max-width: none !important; max-height: none !important; width: auto; padding: 0; } .leaflet-container img.leaflet-tile { mix-blend-mode: plus-lighter; } .leaflet-container.leaflet-touch-zoom { -ms-touch-action: pan-x pan-y; touch-action: pan-x pan-y; } .leaflet-container.leaflet-touch-drag { -ms-touch-action: pinch-zoom; touch-action: none; touch-action: pinch-zoom; } .leaflet-container.leaflet-touch-drag.leaflet-touch-zoom { -ms-touch-action: none; touch-action: none; } .leaflet-container { -webkit-tap-highlight-color: transparent; } .leaflet-container a { -webkit-tap-highlight-color: rgba(51, 181, 229, 0.4); } .leaflet-tile { filter: inherit; visibility: hidden; } .leaflet-tile-loaded { visibility: inherit; } .leaflet-zoom-box { width: 0; height: 0; -moz-box-sizing: border-box; box-sizing: border-box; z-index: 800; } .leaflet-overlay-pane svg { -moz-user-select: none; } .leaflet-pane { z-index: 400; } .leaflet-tile-pane { z-index: 200; } .leaflet-overlay-pane { z-index: 400; } .leaflet-shadow-pane { z-index: 500; } .leaflet-marker-pane { z-index: 600; } .leaflet-tooltip-pane { z-index: 650; } .leaflet-popup-pane { z-index: 700; } .leaflet-map-pane canvas { z-index: 100; } .leaflet-map-pane svg { z-index: 200; } .leaflet-vml-shape { width: 1px; height: 1px; } .lvml { behavior: url(#default#VML); display: inline-block; position: absolute; } .leaflet-control { position: relative; z-index: 800; pointer-events: visiblePainted; pointer-events: auto; } .leaflet-top, .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; } .leaflet-top { top: 0; } .leaflet-right { right: 0; } .leaflet-bottom { bottom: 0; } .leaflet-left { left: 0; } .leaflet-control { float: left; clear: both; } .leaflet-right .leaflet-control { float: right; } .leaflet-top .leaflet-control { margin-top: 10px; } .leaflet-bottom .leaflet-control { margin-bottom: 10px; } .leaflet-left .leaflet-control { margin-left: 10px; } .leaflet-right .leaflet-control { margin-right: 10px; } .leaflet-fade-anim .leaflet-popup { opacity: 0; -webkit-transition: opacity 0.2s linear; -moz-transition: opacity 0.2s linear; transition: opacity 0.2s linear; } .leaflet-fade-anim .leaflet-map-pane .leaflet-popup { opacity: 1; } .leaflet-zoom-animated { -webkit-transform-origin: 0 0; -ms-transform-origin: 0 0; transform-origin: 0 0; } svg.leaflet-zoom-animated { will-change: transform; } .leaflet-zoom-anim .leaflet-zoom-animated { -webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1); -moz-transition: -moz-transform 0.25s cubic-bezier(0,0,0.25,1); transition: transform 0.25s cubic-bezier(0,0,0.25,1); } .leaflet-zoom-anim .leaflet-tile, .leaflet-pan-anim .leaflet-tile { -webkit-transition: none; -moz-transition: none; transition: none; } .leaflet-zoom-anim .leaflet-zoom-hide { visibility: hidden; } .leaflet-interactive { cursor: pointer; } .leaflet-grab { cursor: -webkit-grab; cursor: -moz-grab; cursor: grab; } .leaflet-crosshair, .leaflet-crosshair .leaflet-interactive { cursor: crosshair; } .leaflet-popup-pane, .leaflet-control { cursor: auto; } .leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-grab .leaflet-interactive, .leaflet-dragging .leaflet-marker-draggable { cursor: move; cursor: -webkit-grabbing; cursor: -moz-grabbing; cursor: grabbing; } .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-image-layer, .leaflet-pane > svg path, .leaflet-tile-container { pointer-events: none; } .leaflet-marker-icon.leaflet-interactive, .leaflet-image-layer.leaflet-interactive, .leaflet-pane > svg path.leaflet-interactive, svg.leaflet-image-layer.leaflet-interactive path { pointer-events: visiblePainted; pointer-events: auto; } .leaflet-container { background: #ddd; outline-offset: 1px; } .leaflet-container a { color: #0078A8; } .leaflet-zoom-box { border: 2px dotted #38f; background: rgba(255,255,255,0.5); } .leaflet-container { font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; font-size: 12px; font-size: 0.75rem; line-height: 1.5; } .leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,0.65); border-radius: 4px; } .leaflet-bar a { background-color: #fff; border-bottom: 1px solid #ccc; width: 26px; height: 26px; line-height: 26px; display: block; text-align: center; text-decoration: none; color: black; } .leaflet-bar a, .leaflet-control-layers-toggle { background-position: 50% 50%; background-repeat: no-repeat; display: block; } .leaflet-bar a:hover, .leaflet-bar a:focus { background-color: #f4f4f4; } .leaflet-bar a:first-child { border-top-left-radius: 4px; border-top-right-radius: 4px; } .leaflet-bar a:last-child { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border-bottom: none; } .leaflet-bar a.leaflet-disabled { cursor: default; background-color: #f4f4f4; color: #bbb; } .leaflet-touch .leaflet-bar a { width: 30px; height: 30px; line-height: 30px; } .leaflet-touch .leaflet-bar a:first-child { border-top-left-radius: 2px; border-top-right-radius: 2px; } .leaflet-touch .leaflet-bar a:last-child { border-bottom-left-radius: 2px; border-bottom-right-radius: 2px; } .leaflet-control-zoom-in, .leaflet-control-zoom-out { font: bold 18px 'Lucida Console', Monaco, monospace; text-indent: 1px; } .leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out { font-size: 22px; } .leaflet-control-layers { box-shadow: 0 1px 5px rgba(0,0,0,0.4); background: #fff; border-radius: 5px; } .leaflet-control-layers-toggle { background-image: url(images/layers.png); width: 36px; height: 36px; } .leaflet-retina .leaflet-control-layers-toggle { background-image: url(images/layers-2x.png); background-size: 26px 26px; } .leaflet-touch .leaflet-control-layers-toggle { width: 44px; height: 44px; } .leaflet-control-layers .leaflet-control-layers-list, .leaflet-control-layers-expanded .leaflet-control-layers-toggle { display: none; } .leaflet-control-layers-expanded .leaflet-control-layers-list { display: block; position: relative; } .leaflet-control-layers-expanded { padding: 6px 10px 6px 6px; color: #333; background: #fff; } .leaflet-control-layers-scrollbar { overflow-y: scroll; overflow-x: hidden; padding-right: 5px; } .leaflet-control-layers-selector { margin-top: 2px; position: relative; top: 1px; } .leaflet-control-layers label { display: block; font-size: 13px; font-size: 1.08333em; } .leaflet-control-layers-separator { height: 0; border-top: 1px solid #ddd; margin: 5px -10px 5px -6px; } .leaflet-default-icon-path { background-image: url(images/marker-icon.png); } .leaflet-container .leaflet-control-attribution { background: #fff; background: rgba(255, 255, 255, 0.8); margin: 0; } .leaflet-control-attribution, .leaflet-control-scale-line { padding: 0 5px; color: #333; line-height: 1.4; } .leaflet-control-attribution a { text-decoration: none; } .leaflet-control-attribution a:hover, .leaflet-control-attribution a:focus { text-decoration: underline; } .leaflet-attribution-flag { display: inline !important; vertical-align: baseline !important; width: 1em; height: 0.6669em; } .leaflet-left .leaflet-control-scale { margin-left: 5px; } .leaflet-bottom .leaflet-control-scale { margin-bottom: 5px; } .leaflet-control-scale-line { border: 2px solid #777; border-top: none; line-height: 1.1; padding: 2px 5px 1px; white-space: nowrap; -moz-box-sizing: border-box; box-sizing: border-box; background: rgba(255, 255, 255, 0.8); text-shadow: 1px 1px #fff; } .leaflet-control-scale-line:not(:first-child) { border-top: 2px solid #777; border-bottom: none; margin-top: -2px; } .leaflet-control-scale-line:not(:first-child):not(:last-child) { border-bottom: 2px solid #777; } .leaflet-touch .leaflet-control-attribution, .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar { box-shadow: none; } .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar { border: 2px solid rgba(0,0,0,0.2); background-clip: padding-box; } .leaflet-popup { position: absolute; text-align: center; margin-bottom: 20px; } .leaflet-popup-content-wrapper { padding: 1px; text-align: left; border-radius: 12px; } .leaflet-popup-content { margin: 13px 24px 13px 20px; line-height: 1.3; font-size: 13px; font-size: 1.08333em; min-height: 1px; } .leaflet-popup-content p { margin: 17px 0; margin: 1.3em 0; } .leaflet-popup-tip-container { width: 40px; height: 20px; position: absolute; left: 50%; margin-top: -1px; margin-left: -20px; overflow: hidden; pointer-events: none; } .leaflet-popup-tip { width: 17px; height: 17px; padding: 1px; margin: -10px auto 0; pointer-events: auto; -webkit-transform: rotate(45deg); -moz-transform: rotate(45deg); -ms-transform: rotate(45deg); transform: rotate(45deg); } .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: white; color: #333; box-shadow: 0 3px 14px rgba(0,0,0,0.4); } .leaflet-container a.leaflet-popup-close-button { position: absolute; top: 0; right: 0; border: none; text-align: center; width: 24px; height: 24px; font: 16px/24px Tahoma, Verdana, sans-serif; color: #757575; text-decoration: none; background: transparent; } .leaflet-container a.leaflet-popup-close-button:hover, .leaflet-container a.leaflet-popup-close-button:focus { color: #585858; } .leaflet-popup-scrolled { overflow: auto; } .leaflet-oldie .leaflet-popup-content-wrapper { -ms-zoom: 1; } .leaflet-oldie .leaflet-popup-tip { width: 24px; margin: 0 auto; -ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)"; filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678); } .leaflet-oldie .leaflet-control-zoom, .leaflet-oldie .leaflet-control-layers, .leaflet-oldie .leaflet-popup-content-wrapper, .leaflet-oldie .leaflet-popup-tip { border: 1px solid #999; } .leaflet-div-icon { background: #fff; border: 1px solid #666; } .leaflet-tooltip { position: absolute; padding: 6px; background-color: #fff; border: 1px solid #fff; border-radius: 3px; color: #222; white-space: nowrap; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.4); } .leaflet-tooltip.leaflet-interactive { cursor: pointer; pointer-events: auto; } .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { position: absolute; pointer-events: none; border: 6px solid transparent; background: transparent; content: ""; } .leaflet-tooltip-bottom { margin-top: 6px; } .leaflet-tooltip-top { margin-top: -6px; } .leaflet-tooltip-bottom:before, .leaflet-tooltip-top:before { left: 50%; margin-left: -6px; } .leaflet-tooltip-top:before { bottom: 0; margin-bottom: -12px; border-top-color: #fff; } .leaflet-tooltip-bottom:before { top: 0; margin-top: -12px; margin-left: -6px; border-bottom-color: #fff; } .leaflet-tooltip-left { margin-left: -6px; } .leaflet-tooltip-right { margin-left: 6px; } .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { top: 50%; margin-top: -6px; } .leaflet-tooltip-left:before { right: 0; margin-right: -12px; border-left-color: #fff; } .leaflet-tooltip-right:before { left: 0; margin-left: -12px; border-right-color: #fff; } @media print { .leaflet-control { -webkit-print-color-adjust: exact; print-color-adjust: exact; } } 
+.k-wait .dot{fill:var(--water)}i.wait,.dotc.wait{background:var(--water)}.st-wait{color:var(--water)}
+.status.k-wait{background:light-dark(#e7f1fc,#132538)}
+.wx{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:15px}
+.wx b{font-weight:700}.wx .sp{flex:1}
+.adv{border-left:4px solid var(--leaf);background:light-dark(#f1f7ee,#15241a);border-radius:0 10px 10px 0;padding:10px 12px;margin:12px 0;font-size:15px}
+.adv b{display:block;margin-bottom:2px}
+#lmap{height:300px;border-radius:12px;margin-top:10px;background:var(--bg);border:1px solid var(--line)}
+.res{list-style:none;padding:0;margin:8px 0 0}.res li{margin-top:6px}
+.seg{display:flex;gap:6px;margin-top:10px}
+</style>
+</head>
+<body>
+<header class="top"><button class="fsel" id="bField" aria-label="Cambia terreno"><div><small id="fKind">Terreno</small><h1 id="fName">I miei terreni</h1></div><span>▾</span></button><p id="stats">Caricamento…</p></header>
+<section class="welcome" id="welcome" hidden>
+  <p class="step">Passo 2 di 4</p>
+  <h2>Che cosa vuoi gestire?</h2>
+  <p class="muted" style="font-size:16px">Crea il tuo primo terreno: gli dai un nome e le misure, poi ci posizioni le piante. Potrai aggiungerne altri quando vuoi.</p>
+  <div class="kinds" id="kinds"></div>
+</section>
+<section class="welcome editor" id="editor" hidden>
+  <p class="step" id="edStep">Passo 3 di 4</p>
+  <h2>Disegna la forma: <span id="edName"></span></h2>
+  <p class="muted" id="edHint" style="font-size:16px;min-height:3em"></p>
+  <div class="tools"><button class="btn sm" id="edRect">Rettangolo</button><button class="btn sm" id="edL">Forma a L</button><button class="btn sm" id="edUndo">Annulla punto</button><button class="btn sm" id="edClear">Ricomincia</button></div>
+  <div class="edwrap" id="efw"><svg id="ed" role="img" aria-label="Disegno della forma del terreno"></svg></div>
+  <div class="row"><button class="btn primary" id="edSave">Salva forma</button><button class="btn" id="edExit">Esci senza salvare</button></div>
+</section>
+<nav class="tabs" id="tabs" aria-label="Sezioni">
+  <button data-v="mappa" class="on">Mappa</button>
+  <button data-v="da-fare">Da fare<span class="badge" id="badge" hidden></span></button>
+  <button data-v="piante">Piante</button>
+  <button data-v="storico">Storico</button>
+</nav>
+<div class="notewrap"><div class="note" id="note" hidden></div></div>
+<main id="main">
+  <section id="v-mappa">
+    <div class="tools">
+      <button class="btn primary" id="bAdd">+ Pianta</button>
+      <button class="btn" id="bSel">Seleziona più piante</button>
+      <span class="hint" id="hint">Tocca una pianta per vedere quando è stata innaffiata.</span>
+      <button class="btn sm" id="bCancel" hidden>Annulla</button>
+    </div>
+    <div class="wx" id="wx" hidden></div>
+    <div class="fieldwrap" id="fw"><svg id="field" role="img" aria-label="Mappa del campo"></svg></div>
+    <div class="legend"><span><i></i>A posto</span><span><i class="today"></i>Da innaffiare oggi</span><span><i class="late"></i>In ritardo</span><span><i class="never"></i>Mai innaffiata</span><span><i class="wait"></i>Pioggia in arrivo</span><span>U Ulivo · C Ciliegio · F Fico · A Albero · ✿ Fiori · ▪ Orto</span><span id="gridTxt">Griglia ogni 10 m</span></div>
+  </section>
+  <section id="v-da-fare" hidden>
+    <h2>Da innaffiare</h2>
+    <ul class="list" id="todoWater"></ul>
+    <div class="row" id="allRow" hidden><button class="btn" id="bAll">Segna tutte innaffiate</button></div>
+    <h2>Attività</h2>
+    <div class="tools"><button class="btn primary" id="bTask">+ Attività</button></div>
+    <ul class="list" id="todoTasks"></ul>
+    <details><summary>Completate</summary><ul class="list" id="doneTasks"></ul></details>
+  </section>
+  <section id="v-piante" hidden>
+    <h2>Piante</h2>
+    <input class="search" id="q" type="search" placeholder="Cerca per nome o tipo" aria-label="Cerca pianta">
+    <ul class="list" id="plantList"></ul>
+  </section>
+  <section id="v-storico" hidden>
+    <h2>Storico</h2>
+    <div id="logList"></div>
+  </section>
+</main>
+<div class="selbar" id="selbar" hidden><b id="selN">0 selezionate</b><button class="btn primary sm" id="bWaterSel">Segna innaffiate</button><button class="btn sm" id="bSelX">Annulla</button></div>
+<div class="sheet" id="sheet" hidden><div class="sheet-in" id="sheetIn" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden><span id="toastT"></span><button id="toastB">Annulla</button></div>
+<script>
+/* ===== CONFIGURAZIONE FIREBASE =====
+   Incolla qui l'oggetto firebaseConfig del tuo progetto Firebase per condividere i dati tra tutti.
+   Finché resta null l'app funziona in "modalità prova": i dati restano solo su questo dispositivo. */
+const FIREBASE_CONFIG = null;
+/* =================================== */
+if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostname)){(()=>{
+  const load=src=>new Promise((ok,ko)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
+  const rid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+  function localDb(){
+    const KEY='campo-local-db';let store={};try{store=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+    const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}};let subs=[];
+    const snapOf=(c,q)=>{const n=c.split('/').length+1;let docs=Object.keys(store).filter(k=>k.startsWith(c+'/')&&k.split('/').length===n).map(k=>({id:k.split('/').pop(),exists:true,data:()=>store[k],metadata:{fromCache:false,hasPendingWrites:false}}));
+      for(const[f,op,v]of q.w)docs=docs.filter(d=>{const x=d.data()[f];return op==='<'?x<v:op==='<='?x<=v:op==='>'?x>v:op==='>='?x>=v:op==='!='?x!==v:x===v});
+      if(q.o)docs.sort((a,b)=>{const x=a.data()[q.o[0]],y=b.data()[q.o[0]];return (x<y?-1:x>y?1:0)*(q.o[1]==='desc'?-1:1)});
+      if(q.l)docs=docs.slice(0,q.l);return{docs,size:docs.length,empty:!docs.length,metadata:{fromCache:false,hasPendingWrites:false},docChanges:()=>[]}};
+    const fire=()=>{save();setTimeout(()=>subs.forEach(s=>s.cb(snapOf(s.c,s.q))),0)};
+    const docRef=p=>({id:p.split('/').pop(),path:p,get:async()=>({id:p.split('/').pop(),exists:p in store,data:()=>store[p],metadata:{}}),
+      set:async d=>{store[p]=JSON.parse(JSON.stringify(d));fire()},update:async d=>{if(!(p in store))throw{code:'invalid_argument'};store[p]={...store[p],...JSON.parse(JSON.stringify(d))};fire()},delete:async()=>{delete store[p];fire()},
+      onSnapshot:(cb)=>{const s={c:p,q:null,cb:()=>cb({exists:p in store,data:()=>store[p],metadata:{fromCache:false}})};subs.push(s);setTimeout(s.cb,0);return()=>{subs=subs.filter(x=>x!==s)}}});
+    const query=(c,q)=>({where:(f,op,v)=>query(c,{...q,w:q.w.concat([[f,op,v]])}),orderBy:(f,d)=>query(c,{...q,o:[f,d||'asc']}),limit:n=>query(c,{...q,l:n}),
+      get:async()=>snapOf(c,q),onSnapshot:(cb)=>{const s={c,q,cb};subs.push(s);setTimeout(()=>cb(snapOf(c,q)),0);return()=>{subs=subs.filter(x=>x!==s)}},
+      doc:id=>docRef(c+'/'+(id||rid())),add:async d=>{const r=docRef(c+'/'+rid());await r.set(d);return r}});
+    return{doc:docRef,collection:c=>query(c,{w:[],o:null,l:0})};
+  }
+  async function init(){
+    let uid=null;try{uid=localStorage.getItem('campo-uid');if(!uid){uid='u'+rid();localStorage.setItem('campo-uid',uid)}}catch(e){uid='u'+rid()}
+    let db;
+    if(FIREBASE_CONFIG){
+      const v='https://www.gstatic.com/firebasejs/10.14.1/';
+      await load(v+'firebase-app-compat.js');await load(v+'firebase-auth-compat.js');await load(v+'firebase-firestore-compat.js');
+      firebase.initializeApp(FIREBASE_CONFIG);const cred=await firebase.auth().signInAnonymously();uid=cred.user.uid;
+      db=firebase.firestore();try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
+    }else{db=localDb();window.CAMPO_LOCAL=true}
+    const user={id:async()=>uid,me:async()=>({id:uid}),isOwner:async()=>true,canEdit:async()=>true,can:async()=>true,profiles:async()=>({})};
+    return{db,user};
+  }
+  let P=null;window.claude={use:async k=>{try{const x=await(P||(P=init()));return x[k]||null}catch(e){console.error(e);return null}}};
+})()}
+</script>
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DAY=864e5;let L=100,W=30;
+let db=null,user=null,uid=null,canWrite=true,fields=[],fid=null,allP=[],allT=[],allL=[],plants=[],tasks=[],log=[],fieldsLoaded=false,mode='view',moveId=null,detail=null,q='';
+const sel=new Set(),names={},people={},loaded={f:0,p:0,t:0,l:0,u:0};let askedName=false;
+const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
+const ymd=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+const pYmd=s=>{const [y,m,d]=String(s||'').split('-').map(Number);return y?new Date(y,m-1,d):new Date()};
+const dd=(a,b)=>Math.round((sod(a)-sod(b))/DAY);
+const hm=d=>new Date(d).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+function rel(iso){if(!iso)return 'mai';const n=dd(new Date(),iso);if(n===0)return 'oggi alle '+hm(iso);if(n===1)return 'ieri alle '+hm(iso);if(n<7)return n+' giorni fa';return new Date(iso).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:n>300?'numeric':undefined})}
+const nameOf=id=>!id?'qualcuno':id===uid?(people[uid]?people[uid]+' (tu)':'tu'):(people[id]||names[id]||'qualcuno');
+const byId=id=>plants.find(p=>p.id===id);
+const SEAS={ulivo:{g:[0,30,21,14,10,7,5,5,7,14,30,0],a:[0,0,30,21,14,10,7,7,14,21,0,0],l:[25,60,120]},
+ ciliegio:{g:[0,0,21,10,7,5,4,4,7,14,0,0],a:[0,0,0,14,10,7,5,5,10,21,0,0],l:[20,50,90]},
+ fico:{g:[0,0,21,14,10,7,5,5,7,14,0,0],a:[0,0,0,21,14,10,7,7,10,21,0,0],l:[20,50,80]},
+ albero:{g:[0,0,21,14,7,5,4,4,7,14,30,0],a:[0,0,0,21,14,10,7,7,14,21,0,0],l:[20,50,100]},
+ fiori:{a:[10,7,5,3,2,2,1,1,2,4,7,10],m2:5},orto:{a:[7,7,4,3,2,1,1,1,2,3,5,7],m2:5}};
+const AGES=[['giovane','Giovane (piantato da 1–3 anni)'],['adulto','Adulto'],['grande','Grande, chioma ampia']];
+const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const isTree=k=>!['fiori','orto'].includes(k);
+function advice(kind,age){const s=SEAS[kind]||SEAS.albero,mo=new Date().getMonth();
+  if(s.m2)return{iv:s.a[mo],lit:s.m2,per:'m²'};
+  let iv=(age==='giovane'?s.g:s.a)[mo];if(age==='grande'&&iv)iv=Math.round(iv*1.2);
+  return{iv,lit:s.l[age==='giovane'?0:age==='grande'?2:1],per:'pianta'}}
+/* meteo: wx[fieldId]={days:[{d,rain,tmax}],at,err} */
+const wx={};
+const thOf=k=>isTree(k)?10:5;
+function wxInfo(fieldId,th){
+  const w=wx[fieldId];if(!w||!w.days)return null;const today=ymd(new Date());
+  const past=w.days.filter(x=>x.d<=today),fut=w.days.filter(x=>x.d>today).slice(0,2);
+  let last=null;for(let i=past.length-1;i>=0;i--){const two=past[i].rain+(i>0?past[i-1].rain:0);if(past[i].rain>=1&&two>=th){last={d:pYmd(past[i].d),mm:Math.round(two)};break}}
+  let lastAny=null;for(let i=past.length-1;i>=0;i--)if(past[i].rain>=1){lastAny={d:pYmd(past[i].d),mm:Math.round(past[i].rain)};break}
+  const soonMm=fut.reduce((a,x)=>a+x.rain,0),soon=soonMm>=th?{mm:Math.round(soonMm),when:fut[0]&&fut[0].rain>=th/2?'domani':'nei prossimi 2 giorni'}:null;
+  const t3=past.slice(-3),hot=t3.length&&t3.reduce((a,x)=>a+x.tmax,0)/t3.length>=30;
+  return{last,lastAny,soon,soonMm:Math.round(soonMm),hot,past}}
+function pst(p){
+  const auto=+p.interval===-1,w=wxInfo(p.fieldId,thOf(p.kind));
+  let iv=auto?advice(p.kind,p.age).iv:(+p.interval||0);
+  if(auto&&iv&&w&&w.hot)iv=Math.max(1,Math.round(iv*.7));
+  let base=p.lastWatered?sod(p.lastWatered):null,rain=false;
+  if(w&&w.last&&(!base||w.last.d>base)){base=w.last.d;rain=true}
+  if(!iv){
+    if(auto&&w&&w.past.length>=25&&!w.last&&(!p.lastWatered||dd(new Date(),p.lastWatered)>30))return{k:'today',t:'Niente pioggia utile da un mese: innaffia',n:0};
+    return{k:'ok',t:auto?'In questa stagione basta la pioggia':p.lastWatered?'Innaffiata '+rel(p.lastWatered):'Nessun promemoria',n:9999};
+  }
+  if(!base)return{k:'never',t:'Mai innaffiata',n:-9999};
+  const n=dd(new Date(base.getTime()+iv*DAY),new Date());
+  if(n<=0&&w&&w.soon)return{k:'wait',t:`Aspetta: previsti ${w.soon.mm} mm di pioggia ${w.soon.when}`,n:1};
+  if(n<0)return{k:'late',t:'In ritardo di '+(-n)+(n===-1?' giorno':' giorni'),n};
+  if(n===0)return{k:'today',t:'Da innaffiare oggi',n};
+  return{k:'ok',t:(n===1?'Prossima: domani':'Prossima tra '+n+' giorni')+(rain?' (ha piovuto)':''),n};
+}
+async function loadWx(f,force){
+  if(!f||f.lat==null||f.lon==null)return;const key='campo-wx-'+f.id+'-'+f.lat+','+f.lon;
+  if(!force){const c=wx[f.id];if(c&&c.key===key&&Date.now()-c.at<3*36e5)return;
+    try{const j=JSON.parse(localStorage.getItem(key)||'null');if(j&&Date.now()-j.at<3*36e5){wx[f.id]=j;refresh();return}}catch(e){}}
+  try{const u=`https://api.open-meteo.com/v1/forecast?latitude=${+f.lat}&longitude=${+f.lon}&daily=precipitation_sum,temperature_2m_max&past_days=35&forecast_days=4&timezone=auto`;
+    const res=await fetch(u);if(!res.ok)throw 0;const j=await res.json();const D=j.daily||{};
+    const days=(D.time||[]).map((d,i)=>({d:String(d),rain:+(D.precipitation_sum||[])[i]||0,tmax:+(D.temperature_2m_max||[])[i]||0}));
+    wx[f.id]={key,at:Date.now(),days};try{localStorage.setItem(key,JSON.stringify(wx[f.id]))}catch(e){}
+  }catch(e){wx[f.id]={key,at:Date.now(),err:true}}
+  refresh();
+}
+function renderWx(){
+  const el=$('#wx'),f=curF();if(!f||!db){el.hidden=true;return}el.hidden=false;
+  if(f.lat==null){el.innerHTML=`<span>Imposta dove si trova il terreno: l'app terrà conto della pioggia caduta e prevista.</span><span class="sp"></span><button class="btn sm" id="wxSet">Posizione</button>`;$('#wxSet').onclick=()=>locForm(f.id);return}
+  const w=wx[f.id];
+  if(!w){el.innerHTML='<span>Meteo in caricamento…</span>';return}
+  if(w.err){el.innerHTML=`<span>Meteo non raggiungibile da qui${location.protocol==='file:'||/claude/.test(location.hostname)?' (funzionerà nella versione pubblicata su GitHub)':''}. I promemoria usano solo la stagione.</span>`;return}
+  const i=wxInfo(f.id,5),t=i.past.slice(-1)[0];
+  el.innerHTML=`<span>Ultima pioggia: <b>${i.lastAny?esc(rel(i.lastAny.d.toISOString()).replace(/ alle.*/,''))+' ('+i.lastAny.mm+' mm)':'oltre un mese fa'}</b></span><span>Prossimi 2 giorni: <b>${i.soonMm} mm</b></span>${t?`<span>Max oggi: <b>${Math.round(t.tmax)}°</b></span>`:''}${i.hot?'<span class="st-late">Caldo: intervalli accorciati</span>':''}<span class="sp"></span><span class="muted">${esc(f.place||'')}</span>`;
+}
+const needs=p=>['late','today','never'].includes(pst(p).k);
+function tst(t){if(t.done)return{k:'done',t:'Completata'};const n=dd(pYmd(t.due),new Date());if(n<0)return{k:'late',t:'Scaduta da '+(-n)+' g'};if(n===0)return{k:'today',t:'Oggi'};return{k:'ok',t:n===1?'Domani':'Tra '+n+' giorni',n}}
+const repTxt=r=>{r=Number(r)||0;return r?(r===1?'ogni giorno':'ogni '+r+' g'):''};
+
+/* ---------- mappa ---------- */
+const svg=$('#field'),fw=$('#fw');let vert=false;
+const toS=(x,y)=>vert?[y,x]:[x,y];
+const stepOf=n=>n<=12?1:n<=25?2:n<=300?5:10;
+const labEvery=(st,ppm)=>st*ppm>=26?1:st*ppm*2>=26?2:4;
+function drawField(){
+  const narrow=fw.clientWidth<600;vert=narrow&&L>W*1.3;
+  const [vw,vh]=vert?[W,L]:[L,W],ppm=Math.max(1,fw.clientWidth-12)/vw,m=26/ppm,u=10/ppm,st=stepOf(Math.max(L,W));
+  svg.setAttribute('viewBox',`${-m} ${-m} ${vw+m*2} ${vh+m*2}`);
+  fw.style.aspectRatio=(vw+m*2)+' / '+(vh+m*2);
+  svg.style.setProperty('--u',u);
+  $('#gridTxt').textContent='Griglia ogni '+st+' m';
+  const shp=shapeOf(curF()),poly=shp?shp.map(p=>toS(p.x,p.y).join(',')).join(' '):null;
+  let g=poly?`<rect class="edbg" x="0" y="0" width="${vw}" height="${vh}"/><clipPath id="cp"><polygon points="${poly}"/></clipPath><polygon class="soil edpoly" points="${poly}"/><g clip-path="url(#cp)">`:`<rect class="soil" x="0" y="0" width="${vw}" height="${vh}" rx="${.6*u}"/><g>`;
+  for(let i=st;i<L;i+=st){const[a,b]=toS(i,0),[c,d]=toS(i,W);g+=`<line class="grid" x1="${a}" y1="${b}" x2="${c}" y2="${d}"/>`}
+  for(let j=st;j<W;j+=st){const[a,b]=toS(0,j),[c,d]=toS(L,j);g+=`<line class="grid" x1="${a}" y1="${b}" x2="${c}" y2="${d}"/>`}
+  g+='</g>';
+  const le=labEvery(st,ppm)*st;for(let i=0;i<=L+1e-9;i+=le){const[a,b]=toS(i,-1.6*u);g+=`<text class="ax" x="${a}" y="${b}">${i}</text>`}
+  for(let j=le;j<=W+1e-9;j+=le){const[a,b]=toS(-1.6*u,j);g+=`<text class="ax" x="${a}" y="${b}">${j}</text>`}
+  for(const p of plants){
+    const s=pst(p),[x,y]=toS(Number(p.x)||0,Number(p.y)||0),nm=String(p.name||'');
+    g+=`<g class="pin k-${s.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}" transform="translate(${x} ${y}) scale(${u})"><circle class="hit" r="2.3"/><circle class="pulse" r="1.2"/><circle class="ring" r="2"/>${(p.kind==='orto')?'<rect class="dot" x="-1.2" y="-1.2" width="2.4" height="2.4" rx=".4"/>':'<circle class="dot" r="1.2"/>'}<text class="sym" y=".05">${esc((ptOf(p.kind)||[0,0,''])[2])}</text><text y="2.9">${esc(nm.length>14?nm.slice(0,13)+'…':nm)}</text></g>`;
+  }
+  svg.innerHTML=g;
+}
+let lastNarrow=null;new ResizeObserver(()=>{const n=fw.clientWidth<600;if(n!==lastNarrow||!svg.firstChild){lastNarrow=n;drawField()}}).observe(fw);
+function svgPt(e){const m=svg.getScreenCTM();if(!m)return null;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());let[x,y]=vert?[p.y,p.x]:[p.x,p.y];
+  return{x:Math.round(Math.min(L,Math.max(0,x))*10)/10,y:Math.round(Math.min(W,Math.max(0,y))*10)/10}}
+svg.addEventListener('click',e=>{
+  const pin=e.target.closest('.pin'),pt=svgPt(e);
+  const shp=shapeOf(curF());if((mode==='add'||mode==='move')&&pt&&shp&&!inPoly(pt,shp)){toast('Tocca un punto dentro la forma del terreno');return}
+  if(mode==='add'){setMode('view');if(pt)plantForm(null,pt);return}
+  if(mode==='move'){const id=moveId;setMode('view');if(pt)movePlant(id,pt);return}
+  if(!pin)return;const id=pin.dataset.id;
+  if(mode==='select'){sel.has(id)?sel.delete(id):sel.add(id);renderSel();drawField();return}
+  openPlant(id);
+});
+function setMode(m,id){
+  mode=m;moveId=id||null;document.body.className=m==='view'?'':'m-'+m;
+  $('#bAdd').classList.toggle('on',m==='add');$('#bSel').classList.toggle('on',m==='select');
+  $('#bCancel').hidden=!(m==='add'||m==='move');
+  $('#hint').textContent=m==='add'?'Tocca il punto del campo dove si trova la nuova pianta.':m==='move'?'Tocca la nuova posizione di “'+(byId(id)?.name||'')+'”.':m==='select'?'Tocca le piante che hai innaffiato, poi conferma in basso.':'Tocca una pianta per vedere quando è stata innaffiata.';
+  if(m!=='select'){sel.clear();drawField()}
+  renderSel();
+}
+function renderSel(){$('#selbar').hidden=mode!=='select';$('#selN').textContent=sel.size===1?'1 selezionata':sel.size+' selezionate';$('#bWaterSel').disabled=!sel.size}
+$('#bAdd').onclick=()=>{if(guard())setMode(mode==='add'?'view':'add')};
+$('#bSel').onclick=()=>setMode(mode==='select'?'view':'select');
+$('#bCancel').onclick=$('#bSelX').onclick=()=>setMode('view');
+$('#bWaterSel').onclick=async()=>{const ids=[...sel];setMode('view');await water(ids)};
+
+/* ---------- azioni ---------- */
+function guard(){if(!db){toast('I dati condivisi non sono disponibili in questa vista.');return false}if(!canWrite){toast('Hai accesso in sola lettura.');return false}return true}
+function fail(e){if(e&&e.code==='invalid_argument'&&!plants.length)canWrite=false;toast(e&&e.code==='quota_exceeded'?'Spazio dati esaurito: elimina vecchie voci.':'Salvataggio non riuscito, riprova.')}
+async function water(ids){
+  if(!guard()||!ids.length)return;const at=new Date().toISOString(),prev=[],refs=[];
+  try{
+    for(const id of ids){const p=byId(id);if(!p)continue;prev.push({id,lastWatered:p.lastWatered||null,lastBy:p.lastBy||null});
+      await db.doc('plants/'+id).update({lastWatered:at,lastBy:uid});
+      refs.push(await db.collection('log').add({type:'water',fieldId:fid,plantId:id,label:String(p.name||''),at,by:uid}))}
+    toast(prev.length===1?'“'+byId(prev[0].id).name+'” innaffiata':prev.length+' piante innaffiate',async()=>{
+      try{for(const v of prev)await db.doc('plants/'+v.id).update({lastWatered:v.lastWatered,lastBy:v.lastBy});for(const r of refs)await r.delete();toast('Annullato')}catch(e){fail(e)}});
+  }catch(e){fail(e)}
+}
+async function movePlant(id,pt){if(!guard())return;try{await db.doc('plants/'+id).update({x:pt.x,y:pt.y});toast('Posizione aggiornata')}catch(e){fail(e)}}
+async function doneTask(id){
+  if(!guard())return;const t=tasks.find(x=>x.id===id);if(!t)return;const at=new Date().toISOString(),r=Number(t.repeat)||0;
+  try{
+    if(r)await db.doc('tasks/'+id).update({due:ymd(Date.now()+r*DAY),lastDone:at,lastBy:uid});
+    else await db.doc('tasks/'+id).update({done:true,doneAt:at,doneBy:uid});
+    await db.collection('log').add({type:'task',fieldId:fid,plantId:t.plantId||null,label:String(t.title||''),at,by:uid});
+    toast(r?'Fatta · la prossima tra '+r+' g':'Attività completata');
+  }catch(e){fail(e)}
+}
+
+/* ---------- schede ---------- */
+const sh=$('#sheet'),shIn=$('#sheetIn');
+function sheet(html,det){shIn.innerHTML=html;sh.hidden=false;detail=det||null}
+function closeSheet(){sh.hidden=true;detail=null}
+sh.addEventListener('click',e=>{if(e.target.closest('[data-close]')||(e.target===sh&&!$('#nf')))closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!sh.hidden){if(!$('#nf'))closeSheet()}else if(mode!=='view')setMode('view')}});
+const KINDS=[['campo','Campo','Alberi e piante su un terreno grande',100,30],['orto','Orto','Ortaggi in file o aiuole',20,10],['giardino','Giardino','Prato, siepi, fiori',25,15],['vaso','Terrazzo o vasi','Piante in vaso',8,4]];
+const kindName=k=>(KINDS.find(x=>x[0]===k)||[0,{frutteto:'Frutteto',altro:'Altro'}[k]||'Terreno'])[1];
+const PT=[['ulivo','Ulivo','U',14],['ciliegio','Ciliegio','C',7],['fico','Fico','F',7],['albero','Albero','A',14],['fiori','Fiori','✿',2],['orto','Orto','O',1]];
+const ptOf=k=>PT.find(x=>x[0]===k);const ptName=k=>(ptOf(k)||[0,k||''])[1];
+const FREQ=[[1,'Ogni giorno'],[2,'Ogni 2 giorni'],[3,'Ogni 3 giorni'],[4,'Ogni 4 giorni'],[5,'Ogni 5 giorni'],[7,'Ogni settimana'],[10,'Ogni 10 giorni'],[14,'Ogni 2 settimane'],[21,'Ogni 3 settimane'],[30,'Ogni mese'],[0,'Nessun promemoria']];
+const head=(t,sub)=>`<div class="sh-head"><div><h3>${esc(t)}</h3>${sub?`<p class="muted">${esc(sub)}</p>`:''}</div><button class="x" data-close aria-label="Chiudi">×</button></div>`;
+function advBox(p){
+  const a=advice(p.kind,p.age),w=wxInfo(p.fieldId,thOf(p.kind)),m=MESI[new Date().getMonth()];
+  const freq=a.iv?`ogni ${a.iv===1?'giorno':a.iv+' giorni'}`:'di solito non serve, basta la pioggia';
+  const q=a.per==='m²'?`circa ${a.lit} litri per m² di aiuola`:`circa ${a.lit} litri, lentamente alla base`;
+  const rain=w?`<br>Ultima pioggia utile (≥${thOf(p.kind)} mm): ${w.last?esc(rel(w.last.d.toISOString()).replace(/ alle.*/,''))+' · '+w.last.mm+' mm':'nessuna nell\'ultimo mese'}${w.soon?` · in arrivo ${w.soon.mm} mm ${w.soon.when}`:''}.`:'';
+  return`<div class="adv"><b>Consiglio per ${m}${isTree(p.kind)?' · '+esc(ptName(p.kind).toLowerCase())+' '+esc((p.age||'adulto')):''}</b>Innaffiare ${freq}; quantità ${q}.${rain}</div>`;
+}
+function openPlant(id){
+  const p=byId(id);if(!p){closeSheet();return}const s=pst(p);
+  const hist=log.filter(l=>l.plantId===id).slice(0,8),pt=tasks.filter(t=>t.plantId===id&&!t.done);
+  sheet(head(p.name,ptName(p.kind))+
+  `<div class="status k-${s.k}"><b>${esc(s.t)}</b><span>Ultima innaffiatura: ${esc(rel(p.lastWatered))}${p.lastWatered?' · '+esc(nameOf(p.lastBy)):''}</span></div>
+  <button class="btn primary big" id="shW">Segna innaffiata ora</button>
+  ${advBox(p)}
+  <dl><dt>Frequenza</dt><dd>${+p.interval===-1?'automatica (stagione e meteo)':Number(p.interval)?'ogni '+esc(p.interval)+' giorni':'nessun promemoria'}</dd>${isTree(p.kind)&&p.age?`<dt>Età</dt><dd>${esc((AGES.find(a=>a[0]===p.age)||[0,''])[1])}</dd>`:''}${p.notes?`<dt>Note</dt><dd>${esc(p.notes)}</dd>`:''}</dl>
+  <h4>Attività</h4><ul class="mini">${pt.map(t=>`<li>${esc(t.title)} — <span class="st-${tst(t).k}">${esc(tst(t).t)}</span></li>`).join('')||'<li class="muted">Nessuna attività aperta</li>'}</ul>
+  <div class="row"><button class="btn sm" id="shT">+ Attività per questa pianta</button></div>
+  <h4>Ultime registrazioni</h4><ul class="mini">${hist.map(l=>`<li>${esc(rel(l.at))} · ${l.type==='task'?esc(l.label):'innaffiata'} · ${esc(nameOf(l.by))}</li>`).join('')||'<li class="muted">Ancora niente</li>'}</ul>
+  <div class="row" id="shAct"><button class="btn" id="shE">Modifica</button><button class="btn" id="shM">Sposta sulla mappa</button><button class="btn danger" id="shD">Elimina</button></div>`,()=>openPlant(id));
+  $('#shW').onclick=()=>water([id]);
+  $('#shT').onclick=()=>taskForm(null,id);
+  $('#shE').onclick=()=>plantForm(p);
+  $('#shM').onclick=()=>{if(!guard())return;closeSheet();show('mappa');setMode('move',id)};
+  $('#shD').onclick=()=>{$('#shAct').innerHTML=`<span>Eliminare “${esc(p.name)}”? Lo storico resta.</span><button class="btn danger" id="shY">Sì, elimina</button><button class="btn" id="shN">No</button>`;
+    $('#shN').onclick=()=>openPlant(id);
+    $('#shY').onclick=async()=>{if(!guard())return;try{await db.doc('plants/'+id).delete();for(const t of tasks.filter(t=>t.plantId===id))await db.doc('tasks/'+t.id).update({plantId:null});closeSheet();toast('Pianta eliminata')}catch(e){fail(e)}}};
+}
+function plantForm(p,pt){
+  if(!guard())return;const v=p||{name:'',kind:'',interval:-1,age:'adulto',x:pt.x,y:pt.y,notes:''};
+  const FR=[[-1,'Automatica: consigliata per stagione e meteo']].concat(FREQ);const fr=FR.some(f=>f[0]===+v.interval)?FR:FREQ.concat([[+v.interval,'Ogni '+(+v.interval)+' giorni']]);
+  sheet(head(p?'Modifica pianta':'Nuova pianta')+`<form id="pf">
+  <label for="fK">Pianta</label><select id="fK" required><option value="">Scegli…</option>${PT.map(t=>`<option value="${t[0]}"${t[0]===v.kind?' selected':''}>${t[1]}</option>`).join('')}${v.kind&&!ptOf(v.kind)?`<option value="${esc(v.kind)}" selected>${esc(v.kind)}</option>`:''}</select>
+  <div id="fAgeW"><label for="fA">Età o dimensione</label><select id="fA">${AGES.map(a=>`<option value="${a[0]}"${a[0]===(v.age||'adulto')?' selected':''}>${a[1]}</option>`).join('')}</select></div>
+  <label for="fN">Nome</label><input id="fN" maxlength="60" value="${esc(v.name)}" placeholder="es. Ulivo vicino al cancello">
+  <label for="fI">Frequenza di innaffiatura</label><select id="fI">${fr.map(f=>`<option value="${f[0]}"${f[0]===+v.interval?' selected':''}>${f[1]}</option>`).join('')}</select><p class="muted" id="fHint"></p>
+  <label for="fO">Note</label><textarea id="fO" rows="2" maxlength="500">${esc(v.notes)}</textarea>
+  ${p?'':'<label><input type="checkbox" id="fW" style="width:auto;min-height:0;margin-right:8px">Già innaffiata oggi</label>'}
+  <div class="row"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button></div></form>`);
+  const hint=()=>{const k=$('#fK').value;$('#fAgeW').hidden=!isTree(k);if(!k){$('#fHint').textContent='';return}const a=advice(k,$('#fA').value);
+    $('#fHint').textContent=`Consiglio per ${MESI[new Date().getMonth()]}: ${a.iv?'ogni '+(a.iv===1?'giorno':a.iv+' giorni'):'di solito non serve innaffiare'}, circa ${a.lit} litri${a.per==='m²'?' per m²':''}.`};
+  $('#fA').onchange=hint;$('#fI').onchange=hint;
+  const autoName=k=>{const t=ptOf(k);if(!t)return '';const n=plants.filter(q=>q.kind===k&&(!p||q.id!==p.id)).length+1;return t[1]+' '+n};
+  const syncK=()=>{const k=$('#fK').value;$('#fN').placeholder=autoName(k)||'es. Ulivo vicino al cancello';hint()};hint();
+  $('#fK').onchange=syncK;if(!p){syncK();$('#fK').focus()}
+  $('#pf').onsubmit=async e=>{e.preventDefault();const k=$('#fK').value;if(!k)return;
+    const d={kind:k,name:$('#fN').value.trim()||autoName(k)||ptName(k),interval:Math.max(-1,+$('#fI').value||0),age:isTree(k)?$('#fA').value:null,notes:$('#fO').value.trim()};
+    try{if(p){await db.doc('plants/'+p.id).update(d);openPlant(p.id)}
+      else{const w=$('#fW').checked,at=new Date().toISOString();const r=await db.collection('plants').add({...d,x:v.x,y:v.y,fieldId:fid,createdAt:at,createdBy:uid,lastWatered:w?at:null,lastBy:w?uid:null});
+        if(w)await db.collection('log').add({type:'water',fieldId:fid,plantId:r.id,label:d.name,at,by:uid});closeSheet();toast('Pianta aggiunta')}}catch(e){fail(e)}};
+}
+function taskForm(t,plantId){
+  if(!guard())return;const v=t||{title:'',plantId:plantId||'',due:ymd(new Date()),repeat:0,notes:''};
+  const opts=[...plants].sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${esc(p.id)}"${p.id===v.plantId?' selected':''}>${esc(p.name)}</option>`).join('');
+  const reps=[[0,'Una volta sola'],[1,'Ogni giorno'],[2,'Ogni 2 giorni'],[3,'Ogni 3 giorni'],[7,'Ogni settimana'],[14,'Ogni 2 settimane'],[30,'Ogni mese'],[90,'Ogni 3 mesi']];
+  sheet(head(t?'Modifica attività':'Nuova attività')+`<form id="tf">
+  <label for="tT">Cosa fare</label><input id="tT" required maxlength="80" value="${esc(v.title)}" placeholder="es. Concimare, potare, controllare l'irrigatore">
+  <label for="tP">Pianta (facoltativa)</label><select id="tP"><option value="">Tutto il campo</option>${opts}</select>
+  <div class="two"><div><label for="tD">Scadenza</label><input id="tD" type="date" required value="${esc(v.due)}"></div><div><label for="tR">Ripeti</label><select id="tR">${reps.map(([n,l])=>`<option value="${n}"${n===(Number(v.repeat)||0)?' selected':''}>${l}</option>`).join('')}</select></div></div>
+  <label for="tO">Note</label><textarea id="tO" rows="2" maxlength="500">${esc(v.notes)}</textarea>
+  <div class="row"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button>${t?'<button class="btn danger" type="button" id="tX">Elimina</button>':''}</div></form>`);
+  $('#tT').focus();
+  if(t)$('#tX').onclick=async()=>{try{await db.doc('tasks/'+t.id).delete();closeSheet();toast('Attività eliminata')}catch(e){fail(e)}};
+  $('#tf').onsubmit=async e=>{e.preventDefault();
+    const d={title:$('#tT').value.trim(),plantId:$('#tP').value||null,due:$('#tD').value,repeat:+$('#tR').value||0,notes:$('#tO').value.trim()};
+    if(!d.title||!d.due)return;
+    try{if(t)await db.doc('tasks/'+t.id).update(d);else await db.collection('tasks').add({...d,fieldId:fid,done:false,createdAt:new Date().toISOString(),createdBy:uid});closeSheet();toast('Attività salvata')}catch(e){fail(e)}};
+}
+
+
+/* ---------- terreni ---------- */
+const curF=()=>fields.find(f=>f.id===fid);
+const fNeeds=f=>allP.filter(p=>p.fieldId===f.id&&needs(p)).length;
+function pickField(id){fid=id;try{localStorage.setItem('campo-fid',id)}catch(e){}closeSheet();if(mode!=='view')setMode('view');applyField()}
+function applyField(){
+  if(!fields.find(f=>f.id===fid)){let s=null;try{s=localStorage.getItem('campo-fid')}catch(e){}fid=(fields.find(f=>f.id===s)||[...fields].sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)))[0]||{}).id||null}
+  const f=curF();L=Math.max(1,Number(f&&f.length)||100);W=Math.max(1,Number(f&&f.width)||30);
+  plants=allP.filter(p=>p.fieldId===fid);tasks=allT.filter(t=>t.fieldId===fid);log=allL.filter(l=>l.fieldId===fid);
+  const none=layout();
+  $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');$('#fKind').textContent=f?kindName(f.kind)+' · '+L+' × '+W+' m':'Terreno';
+  refresh();if(f)loadWx(f);
+}
+const kindIco=k=>({campo:'<path d="M3 26h28M9 26V14m0 0c-4 0-5-6 0-8 5 2 4 8 0 8Zm16 12V12m0 0c-5 0-6-7 0-9 6 2 5 9 0 9Z"/>',orto:'<path d="M4 26h26M8 26c0-5 2-8 5-9m-5 9c4 0 6-3 5-9m6 9c0-6 3-9 7-10-1 5-3 9-7 10Z"/>',giardino:'<path d="M17 26v-9m0 0a4 4 0 1 1 4-4 4 4 0 1 1-8 0 4 4 0 0 1 4 4ZM4 26h26"/>',frutteto:'<path d="M17 26V15m-7-1a7 7 0 1 1 14 0c0 4-3 5-7 5s-7-1-7-5Zm3-1h.01M20 11h.01M4 26h26"/>',vaso:'<path d="M10 18h14l-2 9H12Zm7 0v-6m0 0c-4 0-5-5-1-7 2 2 3 6 1 7Z"/>',altro:'<rect x="5" y="9" width="24" height="16" rx="2"/><path d="M5 17h24M17 9v16"/>'}[k]||'');
+function renderKinds(){$('#kinds').innerHTML=KINDS.map(k=>`<button class="kind" data-kind="${k[0]}"><svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${kindIco(k[0])}</svg><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}
+renderKinds();
+$('#kinds').addEventListener('click',e=>{const b=e.target.closest('[data-kind]');if(b)fieldForm(null,b.dataset.kind)});
+function fieldPicker(){
+  const list=[...fields].sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  sheet(head('I tuoi terreni','Scegli quale gestire')+`<ul class="list flist">${list.map(f=>{const n=fNeeds(f),c=allP.filter(p=>p.fieldId===f.id).length;return`<li class="${f.id===fid?'cur':''}"><button class="item" data-pick="${esc(f.id)}"><b>${esc(f.name)}</b><span>${esc(kindName(f.kind))} · ${c===1?'1 pianta':c+' piante'}${n?` · <span class="st-late">${n} da innaffiare</span>`:''}</span></button><button class="btn sm" data-fedit="${esc(f.id)}">Modifica</button></li>`}).join('')||'<li class="empty">Nessun terreno.</li>'}</ul>
+  <div class="row"><button class="btn primary" id="fNew">+ Nuovo terreno</button><button class="btn" id="fMe">Il tuo nome: ${esc(people[uid]||'—')}</button></div>`,fieldPicker);
+  $('#fMe').onclick=()=>askName(false);
+  shIn.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>pickField(b.dataset.pick));
+  shIn.querySelectorAll('[data-fedit]').forEach(b=>b.onclick=()=>fieldForm(fields.find(f=>f.id===b.dataset.fedit)));
+  $('#fNew').onclick=()=>fieldForm(null);
+}
+$('#bField').onclick=()=>{if(db&&fields.length)fieldPicker();else if(db)fieldForm(null)};
+function fieldForm(f,kind){
+  if(!guard())return;const k=KINDS.find(x=>x[0]===(f?f.kind:kind))||KINDS[0];const isNew=!f;
+  const v=f||{name:'',kind:k[0],length:k[3],width:k[4]};
+  sheet(head(f?'Modifica terreno':'Nuovo terreno',f?'':'Passo 2 di 4 · poi disegnerai la forma')+`<form id="ff">
+  <label for="gN">Nome</label><input id="gN" required maxlength="50" value="${esc(v.name)}" placeholder="es. Campo di via Roma, Orto di casa">
+  <label for="gK">Tipo</label><select id="gK">${(f&&!KINDS.some(x=>x[0]===f.kind)?[[f.kind,kindName(f.kind)]]:[]).concat(KINDS).map(x=>`<option value="${x[0]}"${x[0]===v.kind?' selected':''}>${x[1]}</option>`).join('')}</select>
+  <div class="two"><div><label for="gL">Lato lungo (m, circa)</label><input id="gL" type="number" min="1" max="2000" step="0.5" value="${esc(v.length)}"></div><div><label for="gW">Lato corto (m, circa)</label><input id="gW" type="number" min="1" max="2000" step="0.5" value="${esc(v.width)}"></div></div>
+  <p class="muted">Servono solo a fare il foglio a quadretti su cui disegni la forma: bastano misure a occhio.</p>${f?`<div class="row"><button class="btn" type="button" id="gS">Ridisegna la forma</button><button class="btn" type="button" id="gP">Posizione${f.lat!=null?': '+esc(f.place||'impostata'):''}</button></div>`:''}
+  <div class="row" id="ffAct"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button>${f?'<button class="btn danger" type="button" id="gX">Elimina terreno</button>':''}</div></form>`);
+  $('#gN').focus();
+  if(f){$('#gS').onclick=()=>openEditor(f.id,false);$('#gP').onclick=()=>locForm(f.id)}
+  $('#gK').onchange=e=>{if(f)return;const x=KINDS.find(y=>y[0]===e.target.value);$('#gL').value=x[3];$('#gW').value=x[4]};
+  if(f)$('#gX').onclick=()=>{const c=allP.filter(p=>p.fieldId===f.id).length;$('#ffAct').innerHTML=`<span>Eliminare “${esc(f.name)}” con ${c} piante e le sue attività?</span><button class="btn danger" type="button" id="gY">Sì, elimina tutto</button><button class="btn" type="button" id="gNo">No</button>`;
+    $('#gNo').onclick=()=>fieldForm(f);
+    $('#gY').onclick=async()=>{try{for(const p of allP.filter(p=>p.fieldId===f.id))await db.doc('plants/'+p.id).delete();for(const t of allT.filter(t=>t.fieldId===f.id))await db.doc('tasks/'+t.id).delete();await db.doc('fields/'+f.id).delete();if(fid===f.id)fid=null;closeSheet();toast('Terreno eliminato')}catch(e){fail(e)}}};
+  $('#ff').onsubmit=async e=>{e.preventDefault();
+    const d={name:$('#gN').value.trim(),kind:$('#gK').value,length:Math.min(2000,Math.max(1,+$('#gL').value||1)),width:Math.min(2000,Math.max(1,+$('#gW').value||1))};
+    if(!d.name)return;
+    try{if(f){const sc=(+f.length!==d.length||+f.width!==d.width)&&shapeOf(f);if(sc)d.shape=sc.map(p=>({x:Math.min(d.length,p.x),y:Math.min(d.width,p.y)}));await db.doc('fields/'+f.id).update(d);closeSheet();toast('Terreno aggiornato')}
+      else{const r=await db.collection('fields').add({...d,createdAt:new Date().toISOString(),createdBy:uid});fid=r.id;try{localStorage.setItem('campo-fid',r.id)}catch(e){}closeSheet();applyField();show('mappa');openEditor(r.id,true,{...d,id:r.id})}}catch(e){fail(e)}};
+}
+
+
+
+/* ---------- forma del terreno ---------- */
+const shapeOf=f=>f&&Array.isArray(f.shape)&&f.shape.length>=3?f.shape.map(p=>({x:+p.x||0,y:+p.y||0})):null;
+const inPoly=(pt,P)=>{let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a.y>pt.y)!==(b.y>pt.y)&&pt.x<(b.x-a.x)*(pt.y-a.y)/(b.y-a.y)+a.x)c=!c}return c};
+const edS=$('#ed'),efw=$('#efw');let E=null;
+function layout(){const none=fieldsLoaded&&!fields.length&&!!db,ed=!!E;$('#editor').hidden=!ed;document.querySelector('.top').hidden=ed;$('#welcome').hidden=ed||!none;$('#tabs').hidden=ed||none;$('#main').hidden=ed||none;return none}
+function openEditor(id,isNew,fallback){
+  const f=fields.find(x=>x.id===id)||fallback;if(!f||!guard())return;
+  const sh0=shapeOf(f);E={id,isNew,L:Math.max(1,+f.length||100),W:Math.max(1,+f.width||30),pts:sh0||[],closed:!!sh0,drag:-1};
+  $('#edName').textContent=f.name||'';$('#edStep').hidden=!isNew;$('#edExit').textContent=isNew?'Salta (usa un rettangolo)':'Esci senza salvare';
+  closeSheet();if(mode!=='view')setMode('view');layout();window.scrollTo(0,0);drawEd();
+}
+const eS=(x,y)=>E.vert?[y,x]:[x,y];
+const r1=n=>Math.round(n*10)/10;
+function drawEd(){
+  if(!E)return;const l=E.L,w=E.W,pad=52;
+  const top=efw.getBoundingClientRect().top+scrollY,aw=Math.max(180,efw.parentElement.clientWidth-12-pad),ah=Math.max(220,innerHeight-top-80-pad);
+  const a=Math.min(aw/l,ah/w),b=Math.min(aw/w,ah/l);E.vert=b>a*1.15;E.ppm=E.vert?b:a;
+  const [vw,vh]=E.vert?[w,l]:[l,w],m=26/E.ppm,u=10/E.ppm,st=stepOf(Math.max(l,w));
+  efw.style.width=(vw*E.ppm+pad+12)+'px';efw.style.height=(vh*E.ppm+pad+12)+'px';
+  edS.setAttribute('viewBox',`${-m} ${-m} ${vw+m*2} ${vh+m*2}`);edS.style.setProperty('--u',u);
+  let g=`<rect class="edbg" x="0" y="0" width="${vw}" height="${vh}"/>`;
+  for(let i=st;i<l;i+=st){const[x1,y1]=eS(i,0),[x2,y2]=eS(i,w);g+=`<line class="grid" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`}
+  for(let j=st;j<w;j+=st){const[x1,y1]=eS(0,j),[x2,y2]=eS(l,j);g+=`<line class="grid" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`}
+  const le=labEvery(st,E.ppm)*st;for(let i=0;i<=l+1e-9;i+=le){const[x,y]=eS(i,-1.6*u);g+=`<text class="ax" x="${x}" y="${y}">${i}</text>`}
+  for(let j=le;j<=w+1e-9;j+=le){const[x,y]=eS(-1.6*u,j);g+=`<text class="ax" x="${x}" y="${y}">${j}</text>`}
+  const P=E.pts.map(p=>eS(p.x,p.y)),pts=P.map(p=>p.join(',')).join(' ');
+  if(E.closed)g+=`<polygon class="soil edpoly" points="${pts}"/>`;else if(P.length>1)g+=`<polyline class="edline" points="${pts}"/>`;
+  if(E.closed)P.forEach((p,i)=>{const q=P[(i+1)%P.length];g+=`<circle class="mid" data-mid="${i}" cx="${(p[0]+q[0])/2}" cy="${(p[1]+q[1])/2}" r="${1.1*u}"/><text class="midt" x="${(p[0]+q[0])/2}" y="${(p[1]+q[1])/2}">+</text>`});
+  P.forEach((p,i)=>{g+=`<circle class="vx${i===0&&!E.closed&&P.length>=3?' first':''}" data-vx="${i}" cx="${p[0]}" cy="${p[1]}" r="${1.2*u}"/>`});
+  edS.innerHTML=g;
+  const n=E.pts.length,d=E.drag>=0&&E.pts[E.drag];
+  $('#edHint').textContent=d?`Angolo a ${r1(d.x)} m · ${r1(d.y)} m`:!E.closed?(n<3?`Tocca la griglia per segnare gli angoli del terreno, uno dopo l'altro (${n} segnati). Oppure parti da un rettangolo.`:'Continua a segnare gli angoli. Quando hai finito tocca il primo punto (quello pieno) per chiudere la forma.'):'Forma chiusa. Trascina gli angoli per correggerla, tocca un “+” per aggiungere un angolo, poi salva.';
+  $('#edSave').disabled=!E.closed;$('#edUndo').disabled=!n;
+}
+function edPt(e){const m=edS.getScreenCTM();if(!m)return null;const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());let[x,y]=E.vert?[p.y,p.x]:[p.x,p.y];
+  const sn=Math.max(E.L,E.W)<=40?.5:1;return{x:Math.round(Math.min(E.L,Math.max(0,x))/sn)*sn,y:Math.round(Math.min(E.W,Math.max(0,y))/sn)*sn}}
+edS.addEventListener('pointerdown',e=>{
+  if(!E)return;const t=e.target,pt=edPt(e);if(!pt)return;
+  if(t.dataset.vx!==undefined){const i=+t.dataset.vx;if(i===0&&!E.closed&&E.pts.length>=3){E.closed=true;drawEd();return}E.drag=i}
+  else if(t.dataset.mid!==undefined){const i=+t.dataset.mid;E.pts.splice(i+1,0,pt);E.drag=i+1}
+  else if(!E.closed){E.pts.push(pt);E.drag=E.pts.length-1}
+  else return;
+  try{edS.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault();drawEd();
+});
+edS.addEventListener('pointermove',e=>{if(!E||E.drag<0)return;const pt=edPt(e);if(pt){E.pts[E.drag]=pt;drawEd()}});
+const endDrag=()=>{if(E&&E.drag>=0){E.drag=-1;drawEd()}};edS.addEventListener('pointerup',endDrag);edS.addEventListener('pointercancel',endDrag);
+$('#edRect').onclick=()=>{E.pts=[{x:0,y:0},{x:E.L,y:0},{x:E.L,y:E.W},{x:0,y:E.W}];E.closed=true;drawEd()};
+$('#edL').onclick=()=>{const hl=r1(E.L/2),hw=r1(E.W/2);E.pts=[{x:0,y:0},{x:E.L,y:0},{x:E.L,y:hw},{x:hl,y:hw},{x:hl,y:E.W},{x:0,y:E.W}];E.closed=true;drawEd()};
+$('#edUndo').onclick=()=>{if(E.closed)E.closed=false;else E.pts.pop();drawEd()};
+$('#edClear').onclick=()=>{E.pts=[];E.closed=false;drawEd()};
+addEventListener('resize',()=>{if(E)drawEd()});
+async function saveShape(pts){const id=E.id,isNew=E.isNew;try{await db.doc('fields/'+id).update({shape:pts});E=null;layout();applyField();show('mappa');
+  const out=allP.filter(p=>p.fieldId===id&&!inPoly(p,pts)).length;if(isNew)locForm(id,true);else toast(out?out+(out===1?' pianta è':' piante sono')+' fuori dalla forma: spostale':'Forma salvata')}catch(e){fail(e)}}
+$('#edSave').onclick=()=>{if(E&&E.closed&&E.pts.length>=3)saveShape(E.pts.map(p=>({x:p.x,y:p.y})))};
+$('#edExit').onclick=()=>{if(!E)return;if(E.isNew)saveShape([{x:0,y:0},{x:E.L,y:0},{x:E.L,y:E.W},{x:0,y:E.W}]);else{E=null;layout();applyField()}};
+
+
+/* ---------- posizione del terreno ---------- */
+let LF=null;
+function loadLeaflet(){if(window.L)return Promise.resolve(window.L);if(LF)return LF;LF=new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';sc.onload=()=>ok(window.L);sc.onerror=ko;document.head.appendChild(sc)});return LF}
+function locForm(id,isNew){
+  const f=fields.find(x=>x.id===id);if(!f||!guard())return;let pos=f.lat!=null?{lat:+f.lat,lon:+f.lon,place:f.place||''}:null,map=null,mk=null;
+  sheet(`<div class="sh-head"><div>${isNew?'<p class="step">Passo 4 di 4</p>':''}<h3>Dove si trova ${esc(f.name)}?</h3><p class="muted">Serve una volta sola, per sapere quando ha piovuto e quando pioverà lì.</p></div><button class="x" data-close aria-label="Chiudi">×</button></div>
+  <div class="row" style="margin-top:0"><button class="btn" id="lGps">Usa la mia posizione</button></div>
+  <label for="lQ">Cerca il comune o la località</label><div class="row" style="margin-top:0;flex-wrap:nowrap"><input id="lQ" placeholder="es. Santarcangelo di Romagna"><button class="btn" id="lGo">Cerca</button></div>
+  <ul class="res" id="lRes"></ul>
+  <div class="seg"><button class="btn sm on" id="lSat">Satellite</button><button class="btn sm" id="lStr">Mappa</button></div>
+  <div id="lmap"></div><p class="muted" id="lMsg">Tocca la mappa sul punto esatto del terreno.</p>
+  <label for="lC">Oppure incolla le coordinate (es. da Google Maps)</label><input id="lC" inputmode="decimal" placeholder="44.0678, 12.5695" value="${pos?esc(pos.lat+', '+pos.lon):''}">
+  <div class="row"><button class="btn primary" id="lSave">Salva posizione</button><button class="btn" data-close>${isNew?'Più tardi':'Annulla'}</button></div>`);
+  const setPos=(lat,lon,place,move)=>{pos={lat:Math.round(lat*1e5)/1e5,lon:Math.round(lon*1e5)/1e5,place:place!=null?place:(pos&&pos.place)||''};$('#lC').value=pos.lat+', '+pos.lon;
+    if(map){if(mk)mk.setLatLng([pos.lat,pos.lon]);else mk=window.L.circleMarker([pos.lat,pos.lon],{radius:9,color:'#fff',weight:3,fillColor:'#1769c2',fillOpacity:1}).addTo(map);if(move)map.setView([pos.lat,pos.lon],17)}};
+  $('#lC').onchange=()=>{const m=$('#lC').value.match(/(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)/);if(m){const a=+m[1].replace(',','.'),b=+m[2].replace(',','.');if(Math.abs(a)<=90&&Math.abs(b)<=180)setPos(a,b,'',true)}};
+  $('#lGps').onclick=()=>{if(!navigator.geolocation){$('#lMsg').textContent='Posizione non disponibile su questo dispositivo.';return}
+    $('#lMsg').textContent='Rilevo la posizione…';navigator.geolocation.getCurrentPosition(p=>{setPos(p.coords.latitude,p.coords.longitude,'',true);$('#lMsg').textContent='Posizione rilevata: correggi toccando la mappa se serve.'},()=>{$('#lMsg').textContent='Posizione non disponibile qui: cerca il comune o incolla le coordinate.'},{enableHighAccuracy:true,timeout:15000})};
+  const search=async()=>{const q=$('#lQ').value.trim();if(!q)return;$('#lRes').innerHTML='<li class="muted">Cerco…</li>';
+    try{const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?count=5&language=it&name='+encodeURIComponent(q));const j=await r.json();const R=j.results||[];
+      $('#lRes').innerHTML=R.map((x,i)=>`<li><button class="btn sm" data-i="${i}">${esc(x.name)}${x.admin2?', '+esc(x.admin2):x.admin1?', '+esc(x.admin1):''}</button></li>`).join('')||'<li class="muted">Nessun risultato.</li>';
+      $('#lRes').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const x=R[+b.dataset.i];setPos(x.latitude,x.longitude,x.name,false);if(map)map.setView([x.latitude,x.longitude],15);$('#lRes').innerHTML='';$('#lMsg').textContent='Ora tocca sulla mappa il punto esatto del terreno.'})}
+    catch(e){$('#lRes').innerHTML='<li class="muted">Ricerca non disponibile qui: incolla le coordinate.</li>'}};
+  $('#lGo').onclick=search;$('#lQ').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();search()}};
+  loadLeaflet().then(L=>{if(!$('#lmap'))return;map=L.map('lmap',{zoomControl:true}).setView(pos?[pos.lat,pos.lon]:[44.06,12.5],pos?17:9);
+    const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri, Maxar'}),str=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
+    sat.addTo(map);let bad=0;const te=()=>{if(++bad===4)$('#lMsg').textContent='La mappa non si carica qui: usa la ricerca o incolla le coordinate.'};sat.on('tileerror',te);str.on('tileerror',te);
+    $('#lSat').onclick=()=>{map.removeLayer(str);sat.addTo(map);$('#lSat').classList.add('on');$('#lStr').classList.remove('on')};
+    $('#lStr').onclick=()=>{map.removeLayer(sat);str.addTo(map);$('#lStr').classList.add('on');$('#lSat').classList.remove('on')};
+    map.on('click',e=>setPos(e.latlng.lat,e.latlng.lng,null,false));if(pos)setPos(pos.lat,pos.lon,null,false);setTimeout(()=>map.invalidateSize(),200)
+  }).catch(()=>{$('#lMsg').textContent='Mappa non disponibile: usa la ricerca o incolla le coordinate.'});
+  $('#lSave').onclick=async()=>{$('#lC').onchange();if(!pos){$('#lMsg').textContent='Scegli prima un punto.';return}
+    try{await db.doc('fields/'+id).update({lat:pos.lat,lon:pos.lon,place:pos.place||''});closeSheet();toast(isNew?'Fatto! Ora tocca “+ Pianta” e poi il punto dove si trova':'Posizione salvata');loadWx({...f,...pos,id},true)}catch(e){fail(e)}};
+}
+
+/* ---------- nome utente ---------- */
+function askName(first){
+  if(!db||!uid||!canWrite)return;askedName=true;
+  sheet(`<div class="sh-head"><div>${first?'<p class="step">Passo 1 di 4</p>':''}<h3>${first?'Benvenuto! Come ti chiami?':'Il tuo nome'}</h3><p class="muted">Così gli altri vedono chi ha innaffiato e chi ha fatto le attività.</p></div>${first?'':'<button class="x" data-close aria-label="Chiudi">×</button>'}</div>
+  <form id="nf"><label for="nN">Nome</label><input id="nN" required maxlength="30" autocomplete="given-name" value="${esc(people[uid]||'')}" placeholder="es. Alex">
+  <div class="row"><button class="btn primary" type="submit">${first?'Inizia':'Salva'}</button></div></form>`);
+  $('#nN').focus();
+  $('#nf').onsubmit=async e=>{e.preventDefault();const n=$('#nN').value.trim();if(!n)return;
+    try{await db.doc('people/'+uid).set({name:n,updatedAt:new Date().toISOString()});closeSheet();toast('Ciao '+n+'!')}catch(e){fail(e)}};
+}
+function checkName(){if(!askedName&&loaded.u&&uid&&canWrite&&!people[uid]&&sh.hidden)askName(true)}
+
+/* ---------- viste ---------- */
+function renderTodo(){
+  const w=plants.filter(needs).sort((a,b)=>pst(a).n-pst(b).n);
+  $('#todoWater').innerHTML=w.map(p=>{const s=pst(p);return`<li><i class="dotc ${s.k}"></i><button class="item" data-open="${esc(p.id)}"><b>${esc(p.name)}</b><span class="st-${s.k}">${esc(s.t)}${p.lastWatered?' · ultima '+esc(rel(p.lastWatered)):''}</span></button><button class="btn sm" data-water="${esc(p.id)}">Innaffiata</button></li>`}).join('')||`<li class="empty">${plants.length?'Tutto innaffiato. Bel lavoro.':'Nessuna pianta ancora: aggiungile dalla mappa.'}</li>`;
+  $('#allRow').hidden=w.length<2;
+  const open=tasks.filter(t=>!t.done).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
+  $('#todoTasks').innerHTML=open.map(t=>{const s=tst(t),p=t.plantId?byId(t.plantId):null;return`<li><button class="btn sm" data-done="${esc(t.id)}" aria-label="Segna fatta">✓ Fatto</button><button class="item" data-task="${esc(t.id)}"><b>${esc(t.title)}${t.repeat?`<span class="rep">${esc(repTxt(t.repeat))}</span>`:''}</b><span><span class="st-${s.k}">${esc(s.t)}</span> · ${p?esc(p.name):'tutto il campo'}${t.lastDone?' · ultima volta '+esc(rel(t.lastDone)):''}</span></button></li>`}).join('')||'<li class="empty">Nessuna attività in programma.</li>';
+  const done=tasks.filter(t=>t.done).sort((a,b)=>String(b.doneAt).localeCompare(String(a.doneAt))).slice(0,30);
+  $('#doneTasks').innerHTML=done.map(t=>`<li><button class="item" data-task="${esc(t.id)}"><b>${esc(t.title)}</b><span>${esc(rel(t.doneAt))} · ${esc(nameOf(t.doneBy))}</span></button><button class="btn sm" data-reopen="${esc(t.id)}">Riapri</button></li>`).join('')||'<li class="empty">Nessuna.</li>';
+  const n=w.length+open.filter(t=>['late','today'].includes(tst(t).k)).length,b=$('#badge');b.hidden=!n;b.textContent=n;
+}
+function renderPlants(){
+  const f=q.toLowerCase(),l=plants.filter(p=>!f||(String(p.name)+' '+ptName(p.kind)).toLowerCase().includes(f)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  $('#plantList').innerHTML=l.map(p=>{const s=pst(p);return`<li><i class="dotc ${s.k}"></i><button class="item" data-open="${esc(p.id)}"><b>${esc(p.name)}</b><span>${p.kind?esc(ptName(p.kind))+' · ':''}<span class="st-${s.k}">${esc(s.t)}</span></span></button><button class="btn sm" data-water="${esc(p.id)}">Innaffiata</button></li>`}).join('')||`<li class="empty">${plants.length?'Nessuna pianta corrisponde.':'Nessuna pianta ancora: vai su Mappa e tocca “+ Pianta”.'}</li>`;
+}
+function renderLog(){
+  if(!log.length){$('#logList').innerHTML='<ul class="list"><li class="empty">Le innaffiature e le attività completate compariranno qui.</li></ul>';return}
+  const groups=[];for(const l of log){const k=ymd(l.at);let g=groups[groups.length-1];if(!g||g.k!==k)groups.push(g={k,items:[]});g.items.push(l)}
+  $('#logList').innerHTML=groups.map(g=>{const n=dd(new Date(),pYmd(g.k));const t=n===0?'Oggi':n===1?'Ieri':pYmd(g.k).toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+    return`<div class="day">${esc(t)}</div><ul class="list">${g.items.map(l=>`<li><span class="time">${esc(hm(l.at))}</span><button class="item"${l.plantId&&byId(l.plantId)?` data-open="${esc(l.plantId)}"`:''}><b>${l.type==='task'?esc(l.label):'Innaffiata: '+esc(l.label)}</b><span>${esc(nameOf(l.by))}</span></button></li>`).join('')}</ul>`}).join('');
+}
+function renderStats(){const w=plants.filter(needs).length,o=fields.filter(f=>f.id!==fid).reduce((a,f)=>a+fNeeds(f),0);$('#stats').textContent=(plants.length?`${plants.length===1?'1 pianta':plants.length+' piante'} · ${w?w+' da innaffiare':'tutte a posto'}`:'Nessuna pianta ancora')+(o?` · ${o} negli altri terreni`:'')}
+function refresh(){renderWx();drawField();renderTodo();renderPlants();renderLog();renderStats();if(detail&&!sh.hidden)detail();
+  resolveNames([...plants.map(p=>p.lastBy),...log.map(l=>l.by),...tasks.map(t=>t.doneBy)])}
+async function resolveNames(ids){if(!user)return;const need=[...new Set(ids)].filter(i=>i&&i!==uid&&!people[i]&&!(i in names));if(!need.length)return;need.forEach(i=>names[i]='');
+  try{const ps=await user.profiles(need);let ch=false;for(const i of need){const n=ps&&ps[i]&&ps[i].name;if(n){names[i]=n;ch=true}}if(ch)refresh()}catch(e){}}
+document.querySelector('main').addEventListener('click',e=>{const b=e.target.closest('[data-open],[data-water],[data-done],[data-task],[data-reopen]');if(!b)return;const d=b.dataset;
+  if(d.water)water([d.water]);else if(d.open)openPlant(d.open);else if(d.done)doneTask(d.done);else if(d.task)taskForm(tasks.find(t=>t.id===d.task));
+  else if(d.reopen&&guard())db.doc('tasks/'+d.reopen).update({done:false,due:ymd(new Date())}).catch(fail)});
+$('#bAll').onclick=()=>water(plants.filter(needs).map(p=>p.id));
+$('#bTask').onclick=()=>taskForm(null);
+$('#q').addEventListener('input',e=>{q=e.target.value;renderPlants()});
+
+/* ---------- schede di navigazione ---------- */
+const views=['mappa','da-fare','piante','storico'];
+function show(v){if(!views.includes(v))v='mappa';views.forEach(x=>{$('#v-'+x).hidden=x!==v});document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));if(v!=='mappa'&&mode!=='view')setMode('view');if(v==='mappa')drawField()}
+document.querySelector('.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b){location.hash=b.dataset.v;show(b.dataset.v)}});
+addEventListener('hashchange',()=>show(location.hash.slice(1)));
+show(location.hash.slice(1));
+
+/* ---------- toast e avvisi ---------- */
+let tt;function toast(msg,undo){const t=$('#toast');$('#toastT').textContent=msg;const b=$('#toastB');b.hidden=!undo;b.onclick=()=>{t.hidden=true;undo&&undo()};t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,undo?7000:3500)}
+function note(msg){const n=$('#note');n.hidden=!msg;n.textContent=msg||''}
+setInterval(()=>{const f=curF();if(f)loadWx(f);refresh()},60000);
+refresh();
+
+/* ---------- dati condivisi ---------- */
+(async()=>{
+  const timer=setTimeout(()=>note('I dati del campo non sono ancora raggiungibili: controlla la connessione.'),10000);
+  const C=window.claude;db=C?await C.use('db'):null;user=C?await C.use('user'):null;
+  if(!db){clearTimeout(timer);note(window.claude&&!window.CAMPO_LOCAL&&FIREBASE_CONFIG?'Collegamento al database non riuscito: controlla la connessione e ricarica.':'Accedi a Claude per vedere e aggiornare i dati condivisi del campo.');$('#stats').textContent='Dati non disponibili';return}
+  try{uid=user?await user.id():null;const cw=user?await user.can('data.write'):null;canWrite=cw!==false}catch(e){}
+  if(!canWrite)note('Sei in sola lettura: chiedi al proprietario di condividerti l’app come Collaboratore.');
+  const localNote=()=>window.CAMPO_LOCAL?'Modalità prova: i dati restano solo su questo dispositivo finché non colleghiamo il database condiviso.':'';
+  if(window.CAMPO_LOCAL)note(localNote());
+  const ok=s=>{if(!s.metadata.fromCache&&loaded.f&&loaded.p&&loaded.t&&loaded.l){clearTimeout(timer);if(canWrite)note(localNote());migrate()}};
+  const err=()=>{clearTimeout(timer);note('Connessione ai dati interrotta: ricarica la pagina.')};
+  db.collection('fields').onSnapshot(s=>{fields=s.docs.map(d=>({...d.data(),id:d.id}));loaded.f=1;if(!s.metadata.fromCache)fieldsLoaded=true;ok(s);applyField()},err);
+  db.collection('people').onSnapshot(s=>{for(const k in people)delete people[k];s.docs.forEach(d=>{const n=d.data().name;if(n)people[d.id]=String(n)});if(!s.metadata.fromCache)loaded.u=1;applyField();checkName()},err);
+  db.collection('plants').onSnapshot(s=>{allP=s.docs.map(d=>({...d.data(),id:d.id}));loaded.p=1;ok(s);applyField()},err);
+  db.collection('tasks').onSnapshot(s=>{allT=s.docs.map(d=>({...d.data(),id:d.id}));loaded.t=1;ok(s);applyField()},err);
+  db.collection('log').orderBy('at','desc').limit(600).onSnapshot(s=>{allL=s.docs.map(d=>({...d.data(),id:d.id}));loaded.l=1;ok(s);applyField()},err);
+  let migrated=false;
+  async function migrate(){
+    if(migrated||!canWrite)return;const orphans=[...allP.filter(p=>!p.fieldId).map(p=>'plants/'+p.id),...allT.filter(t=>!t.fieldId).map(t=>'tasks/'+t.id),...allL.filter(l=>!l.fieldId).map(l=>'log/'+l.id)];
+    if(!orphans.length)return;migrated=true;
+    try{let f=fields[0];if(!f){const r=await db.collection('fields').add({name:'Il campo',kind:'campo',length:100,width:30,createdAt:new Date().toISOString(),createdBy:uid});f={id:r.id}}
+      for(const p of orphans)await db.doc(p).update({fieldId:f.id})}catch(e){}
+  }
+  if(canWrite)setTimeout(async()=>{try{const old=await db.collection('log').where('at','<',new Date(Date.now()-400*DAY).toISOString()).limit(40).get();for(const d of old.docs)await db.collection('log').doc(d.id).delete()}catch(e){}},15000);
+})();
+}
+</script>
+</body>
+</html>
