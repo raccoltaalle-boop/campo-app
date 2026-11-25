@@ -267,18 +267,20 @@ const hm=d=>new Date(d).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-dig
 function rel(iso){if(!iso)return 'mai';const n=dd(new Date(),iso);if(n===0)return 'oggi alle '+hm(iso);if(n===1)return 'ieri alle '+hm(iso);if(n<7)return n+' giorni fa';return new Date(iso).toLocaleDateString('it-IT',{day:'numeric',month:'short',year:n>300?'numeric':undefined})}
 const nameOf=id=>!id?'qualcuno':id===uid?(people[uid]?people[uid]+' (tu)':'tu'):(people[id]||names[id]||'qualcuno');
 const byId=id=>plants.find(p=>p.id===id);
-const SEAS={ulivo:{g:[0,30,21,14,10,7,5,5,7,14,30,0],a:[0,0,30,21,14,10,7,7,14,21,0,0],l:[25,60,120]},
- ciliegio:{g:[0,0,21,10,7,5,4,4,7,14,0,0],a:[0,0,0,14,10,7,5,5,10,21,0,0],l:[20,50,90]},
- fico:{g:[0,0,21,14,10,7,5,5,7,14,0,0],a:[0,0,0,21,14,10,7,7,10,21,0,0],l:[20,50,80]},
- albero:{g:[0,0,21,14,7,5,4,4,7,14,30,0],a:[0,0,0,21,14,10,7,7,14,21,0,0],l:[20,50,100]},
+const SEAS={ulivo:{g:[0,30,21,14,10,7,5,5,7,14,30,0],a:[0,0,30,21,14,10,7,7,14,21,0,0],l:[25,45,80]},
+ ciliegio:{g:[0,0,21,10,7,5,4,4,7,14,0,0],a:[0,0,0,14,10,7,5,5,10,21,0,0],l:[20,35,60]},
+ fico:{g:[0,0,21,14,10,7,5,5,7,14,0,0],a:[0,0,0,21,14,10,7,7,10,21,0,0],l:[20,35,60]},
+ albero:{g:[0,0,21,14,7,5,4,4,7,14,30,0],a:[0,0,0,21,14,10,7,7,14,21,0,0],l:[20,40,70]},
  fiori:{a:[10,7,5,3,2,2,1,1,2,4,7,10],m2:5},orto:{a:[7,7,4,3,2,1,1,1,2,3,5,7],m2:5}};
-const AGES=[['giovane','Giovane (piantato da 1–3 anni)'],['adulto','Adulto'],['grande','Grande, chioma ampia']];
+const AGES=[['giovane','Giovane (1–3 anni)'],['medio','Medio (4–10 anni)'],['adulto','Adulto (oltre 10 anni)']];
+const ageOf=a=>a==='grande'?'adulto':(a||'adulto');const ageName=a=>({giovane:'giovane',medio:'di media età',adulto:'adulto'})[ageOf(a)];
 const MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 const isTree=k=>!['fiori','orto'].includes(k);
 function advice(kind,age){const s=SEAS[kind]||SEAS.albero,mo=new Date().getMonth();
   if(s.m2)return{iv:s.a[mo],lit:s.m2,per:'m²'};
-  let iv=(age==='giovane'?s.g:s.a)[mo];if(age==='grande'&&iv)iv=Math.round(iv*1.2);
-  return{iv,lit:s.l[age==='giovane'?0:age==='grande'?2:1],per:'pianta'}}
+  const ag=ageOf(age),g=s.g[mo],ad=s.a[mo];
+  const iv=ag==='giovane'?g:ag==='adulto'?ad:(ad===0?(g&&g<=14?Math.round(g*1.5):0):Math.round((g+ad)/2));
+  return{iv,lit:s.l[ag==='giovane'?0:ag==='medio'?1:2],per:'pianta'}}
 /* meteo: wx[fieldId]={days:[{d,rain,tmax}],at,err} */
 const wx={};
 const thOf=k=>isTree(k)?10:5;
@@ -441,7 +443,7 @@ function advBox(p){
   const freq=a.iv?`ogni ${a.iv===1?'giorno':a.iv+' giorni'}`:'di solito non serve, basta la pioggia';
   const ar=bedArea(p),q=a.per==='m²'?`circa ${a.lit} litri per m²${ar?` (${Math.round(a.lit*ar)} litri per tutto l'orto, ${ar} m²)`:''}`:`circa ${a.lit} litri, lentamente alla base`;
   const rain=w?`<br>Ultima pioggia utile (≥${thOf(p.kind)} mm): ${w.last?esc(rel(w.last.d.toISOString()).replace(/ alle.*/,''))+' · '+w.last.mm+' mm':'nessuna nell\'ultimo mese'}${w.soon?` · in arrivo ${w.soon.mm} mm ${w.soon.when}`:''}.`:'';
-  return`<div class="adv"><b>Consiglio per ${m}${isTree(p.kind)?' · '+esc(ptName(p.kind).toLowerCase())+' '+esc((p.age||'adulto')):''}</b>Innaffiare ${freq}; quantità ${q}.${rain}</div>`;
+  return`<div class="adv"><b>Consiglio per ${m}${isTree(p.kind)?' · '+esc(ptName(p.kind).toLowerCase())+' '+esc(ageName(p.age)):''}</b>Innaffiare ${freq}; quantità ${q}.${rain}</div>`;
 }
 let cropRep=null;
 function cropsBox(p){
@@ -475,7 +477,7 @@ function openPlant(id){if(cropFor!==id){cropRep=null;cropFor=id}
   `<div class="status k-${s.k}"><b>${esc(s.t)}</b><span>Ultima innaffiatura: ${esc(rel(p.lastWatered))}${p.lastWatered?' · '+esc(nameOf(p.lastBy)):''}</span></div>
   <button class="btn primary big" id="shW">Segna innaffiata ora</button>
   ${advBox(p)}
-  <dl><dt>Frequenza</dt><dd>${+p.interval===-1?'automatica (stagione e meteo)':Number(p.interval)?'ogni '+esc(p.interval)+' giorni':'nessun promemoria'}</dd>${isTree(p.kind)&&p.age?`<dt>Età</dt><dd>${esc((AGES.find(a=>a[0]===p.age)||[0,''])[1])}</dd>`:''}${p.notes?`<dt>Note</dt><dd>${esc(p.notes)}</dd>`:''}</dl>
+  <dl><dt>Frequenza</dt><dd>${+p.interval===-1?'automatica (stagione e meteo)':Number(p.interval)?'ogni '+esc(p.interval)+' giorni':'nessun promemoria'}</dd>${isTree(p.kind)&&p.age?`<dt>Età</dt><dd>${esc((AGES.find(a=>a[0]===ageOf(p.age))||[0,''])[1])}</dd>`:''}${p.notes?`<dt>Note</dt><dd>${esc(p.notes)}</dd>`:''}</dl>
   ${p.kind==='orto'?cropsBox(p):''}
   <h4>Attività</h4><ul class="mini">${pt.map(t=>`<li>${esc(t.title)} — <span class="st-${tst(t).k}">${esc(tst(t).t)}</span></li>`).join('')||'<li class="muted">Nessuna attività aperta</li>'}</ul>
   <div class="row"><button class="btn sm" id="shT">+ Attività per questa pianta</button></div>
@@ -495,7 +497,7 @@ function plantForm(p,pt,kind){
   const FR=[[-1,'Automatica: consigliata per stagione e meteo']].concat(FREQ);const fr=FR.some(f=>f[0]===+v.interval)?FR:FREQ.concat([[+v.interval,'Ogni '+(+v.interval)+' giorni']]);
   sheet(head(p?(p.kind==='orto'?'Modifica orto':'Modifica pianta'):(v.kind==='orto'?'Nuovo orto':'Nuova pianta'))+`<form id="pf">
   <label for="fK">Pianta</label><select id="fK" required><option value="">Scegli…</option>${PT.map(t=>`<option value="${t[0]}"${t[0]===v.kind?' selected':''}>${t[1]}</option>`).join('')}${v.kind&&!ptOf(v.kind)?`<option value="${esc(v.kind)}" selected>${esc(v.kind)}</option>`:''}</select>
-  <div id="fAgeW"><label for="fA">Età o dimensione</label><select id="fA">${AGES.map(a=>`<option value="${a[0]}"${a[0]===(v.age||'adulto')?' selected':''}>${a[1]}</option>`).join('')}</select></div>
+  <div id="fAgeW"><label for="fA">Età dell'albero</label><select id="fA">${AGES.map(a=>`<option value="${a[0]}"${a[0]===ageOf(v.age)?' selected':''}>${a[1]}</option>`).join('')}</select></div>
   <div id="fBedW"><label>Dimensioni dell'orto (m)</label><div class="two"><div><input id="fBw" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" value="${esc(v.w||4)}" aria-label="Lunghezza in metri"></div><div><input id="fBh" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" value="${esc(v.h||2)}" aria-label="Larghezza in metri"></div></div>
   <div class="presets">${[[2,1],[3,2],[4,2],[5,3],[8,4],[10,5]].map(([a,b])=>`<button type="button" class="btn sm" data-ps="${a}x${b}">${a}×${b}</button>`).join('')}</div><p class="muted">Lunghezza × larghezza. Poi lo vedi disegnato sulla mappa; potrai cambiarlo quando vuoi.</p></div>
   <label for="fN">Nome</label><input id="fN" maxlength="60" value="${esc(v.name)}" placeholder="es. Ulivo vicino al cancello">
