@@ -201,8 +201,16 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
 <script>
 /* ===== CONFIGURAZIONE FIREBASE =====
    Incolla qui l'oggetto firebaseConfig del tuo progetto Firebase per condividere i dati tra tutti.
-   Finché resta null l'app funziona in "modalità prova": i dati restano solo su questo dispositivo. */
-const FIREBASE_CONFIG = null;
+   Se è null l'app funziona in "modalità prova": i dati restano solo su questo dispositivo.
+   La chiave web di Firebase non è segreta: l'accesso ai dati è regolato dalle regole di Firestore. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAW5WZxhO8o8IOCmPOyfqkU8LoooUiv5uo",
+  authDomain: "campo-app-10f83.firebaseapp.com",
+  projectId: "campo-app-10f83",
+  storageBucket: "campo-app-10f83.firebasestorage.app",
+  messagingSenderId: "534987619251",
+  appId: "1:534987619251:web:caf5dc49e96283c99469c6"
+};
 /* =================================== */
 if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostname)){(()=>{
   const load=src=>new Promise((ok,ko)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=ko;document.head.appendChild(s)});
@@ -230,7 +238,7 @@ if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostna
       const v='https://www.gstatic.com/firebasejs/10.14.1/';
       await load(v+'firebase-app-compat.js');await load(v+'firebase-auth-compat.js');await load(v+'firebase-firestore-compat.js');
       firebase.initializeApp(FIREBASE_CONFIG);const cred=await firebase.auth().signInAnonymously();uid=cred.user.uid;
-      db=firebase.firestore();try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
+      db=firebase.firestore();try{db.settings({ignoreUndefinedProperties:true,merge:true})}catch(e){}try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
     }else{db=localDb();window.CAMPO_LOCAL=true}
     const user={id:async()=>uid,me:async()=>({id:uid}),isOwner:async()=>true,canEdit:async()=>true,can:async()=>true,profiles:async()=>({})};
     return{db,user};

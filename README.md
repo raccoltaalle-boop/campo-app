@@ -13,7 +13,7 @@ App web per gestire l'innaffiatura di campi, orti, giardini e terrazzi condivisa
 Ogni modifica pubblicata su `main` è subito online: chi apre l'app trova sempre l'ultima versione.
 
 ## Dati condivisi
-I dati condivisi stanno su Firebase (Firestore). La configurazione va incollata in `index.html`,
+I dati condivisi stanno su Firebase (progetto `campo-app-10f83`, Firestore in Europa, accesso anonimo).
 nella costante `FIREBASE_CONFIG` in cima al primo `<script>`. Finché è `null` l'app funziona in
 modalità prova, con i dati salvati solo sul dispositivo.
 
