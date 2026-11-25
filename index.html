@@ -66,13 +66,18 @@ main{max-width:1240px;margin:0 auto;padding:16px max(4vw,12px) 120px}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .fieldwrap{position:relative;width:100%;border-radius:14px;background:var(--panel);border:1px solid var(--line);padding:6px}
 #field{display:block;width:100%;height:100%;touch-action:manipulation;user-select:none}
-.m-add #field,.m-move #field{cursor:crosshair}
+.m-add #field,.m-move #field,.m-hedge #field{cursor:crosshair}
 .soil{fill:var(--grass)}.grid{stroke:var(--row);stroke-width:calc(.12px*var(--u,1))}.ax{font:600 calc(1.1px*var(--u,1)) Manrope,sans-serif;fill:var(--muted);text-anchor:middle;dominant-baseline:middle}
 .pin{cursor:pointer}.pin .hit{fill:transparent}
 .pin .dot{fill:var(--ok);stroke:light-dark(#fff,#0e1510);stroke-width:.35}
 .k-today .dot{fill:var(--today)}.k-late .dot{fill:var(--late)}.k-never .dot{fill:#8a939b}
 .pin .ring{fill:none;stroke:var(--water);stroke-width:.45;opacity:0}.pin.on .ring{opacity:1}
 .pin .pulse{fill:none;stroke:none}.pin .halo{fill:#fff;stroke:#fff;stroke-width:.35}.pin .dot.nos{stroke:none}
+.pin .fr{fill:#d9480f;stroke:#fff;stroke-width:.08}.pin .hedge-ic{stroke:var(--ok);stroke-width:.9;stroke-linecap:round}
+.hedge{cursor:pointer}.hedge .hx{stroke:transparent;fill:none;stroke-linecap:round;stroke-linejoin:round}.hedge .hb{stroke:#fff;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.hedge .hl{stroke:var(--ok);fill:none;stroke-linecap:round;stroke-linejoin:round}.hedge.k-today .hl{stroke:var(--today)}.hedge.k-late .hl{stroke:var(--late)}.hedge.k-never .hl{stroke:#8a939b}.hedge.k-wait .hl{stroke:var(--water)}.hedge.on .hb{stroke:var(--water)}
+.hedge text{font:700 1.15px Manrope,sans-serif;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--grass);stroke-width:.4}
+.draft{fill:none;stroke:var(--water);stroke-dasharray:.6 .4;stroke-linecap:round}.draftp{fill:var(--water);stroke:#fff}
 .pin .trunk{fill:none;stroke:#7a5533;stroke-width:.32;stroke-linecap:round}.pin .trunk-r{fill:#7a5533}
 .pin .stem{stroke:#2b8a3e;stroke-width:.22;stroke-linecap:round}.pin .core{fill:#ffe08a;stroke:#fff;stroke-width:.12}
 .pin .olv{fill:#3f4a2a;opacity:.75}.pin .shine{fill:none;stroke:#fff;stroke-width:.18;stroke-linecap:round;opacity:.55}
@@ -173,9 +178,10 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
     <div class="tools">
       <button class="btn primary" id="bAdd">+ Pianta</button>
       <button class="btn primary" id="bBed">+ Orto</button>
+      <button class="btn primary" id="bHedge">+ Siepe</button>
       <button class="btn" id="bSel">Seleziona più piante</button>
       <span class="hint" id="hint">Tocca una pianta per vedere quando è stata innaffiata.</span>
-      <button class="btn sm" id="bCancel" hidden>Annulla</button>
+      <button class="btn primary sm" id="bDone" hidden>Fine</button><button class="btn sm" id="bCancel" hidden>Annulla</button>
     </div>
     <div class="wx" id="wx" hidden></div>
     <div class="fieldwrap" id="fw"><svg id="field" role="img" aria-label="Mappa del campo"></svg></div>
@@ -257,7 +263,7 @@ if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostna
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DAY=864e5;let L=100,W=30;
-let addKind='',db=null,user=null,uid=null,canWrite=true,fields=[],fid=null,allP=[],allT=[],allL=[],plants=[],tasks=[],log=[],fieldsLoaded=false,mode='view',moveId=null,detail=null,q='';
+let addKind='',hedgePts=[],db=null,user=null,uid=null,canWrite=true,fields=[],fid=null,allP=[],allT=[],allL=[],plants=[],tasks=[],log=[],fieldsLoaded=false,mode='view',moveId=null,detail=null,q='';
 const sel=new Set(),names={},people={},loaded={f:0,p:0,t:0,l:0,u:0};let askedName=false;
 const sod=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x};
 const ymd=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
@@ -271,6 +277,8 @@ const SEAS={ulivo:{g:[0,30,21,14,10,7,5,5,7,14,30,0],a:[0,0,30,21,14,10,7,7,14,2
  ciliegio:{g:[0,0,21,10,7,5,4,4,7,14,0,0],a:[0,0,0,14,10,7,5,5,10,21,0,0],l:[20,35,60]},
  fico:{g:[0,0,21,14,10,7,5,5,7,14,0,0],a:[0,0,0,21,14,10,7,7,10,21,0,0],l:[20,35,60]},
  albero:{g:[0,0,21,14,7,5,4,4,7,14,30,0],a:[0,0,0,21,14,10,7,7,14,21,0,0],l:[20,40,70]},
+ frutto:{g:[0,0,21,10,7,5,4,4,7,14,0,0],a:[0,0,0,14,10,7,5,5,10,21,0,0],l:[20,40,70]},
+ siepe:{g:[0,0,21,10,7,4,3,3,7,14,0,0],a:[0,0,0,21,14,7,5,5,10,21,0,0],lm:[4,6,8]},
  fiori:{a:[10,7,5,3,2,2,1,1,2,4,7,10],m2:5},orto:{a:[7,7,4,3,2,1,1,1,2,3,5,7],m2:5}};
 const AGES=[['giovane','Giovane (1–3 anni)'],['medio','Medio (4–10 anni)'],['adulto','Adulto (oltre 10 anni)']];
 const ageOf=a=>a==='grande'?'adulto':(a||'adulto');const ageName=a=>({giovane:'giovane',medio:'di media età',adulto:'adulto'})[ageOf(a)];
@@ -280,7 +288,7 @@ function advice(kind,age){const s=SEAS[kind]||SEAS.albero,mo=new Date().getMonth
   if(s.m2)return{iv:s.a[mo],lit:s.m2,per:'m²'};
   const ag=ageOf(age),g=s.g[mo],ad=s.a[mo];
   const iv=ag==='giovane'?g:ag==='adulto'?ad:(ad===0?(g&&g<=14?Math.round(g*1.5):0):Math.round((g+ad)/2));
-  return{iv,lit:s.l[ag==='giovane'?0:ag==='medio'?1:2],per:'pianta'}}
+  const ix=ag==='giovane'?0:ag==='medio'?1:2;return s.lm?{iv,lit:s.lm[ix],per:'m'}:{iv,lit:s.l[ix],per:'pianta'}}
 /* meteo: wx[fieldId]={days:[{d,rain,tmax}],at,err} */
 const wx={};
 const thOf=k=>isTree(k)?10:5;
@@ -357,7 +365,11 @@ function drawField(){
     const[a1,b1]=toS(x0,y0),[a2,b2]=toS(x0+w,y0+h),rx=Math.min(a1,a2),ry=Math.min(b1,b2),rw=Math.abs(a2-a1),rh=Math.abs(b2-b1);
     let ln='';const along=rw>=rh,len=along?rh:rw,n=Math.min(40,Math.floor(len/0.75));for(let i=1;i<n;i++){const o=len*i/n;ln+=along?`<line x1="${rx}" y1="${ry+o}" x2="${rx+rw}" y2="${ry+o}"/>`:`<line x1="${rx+o}" y1="${ry}" x2="${rx+o}" y2="${ry+rh}"/>`}
     g+=`<g class="bed${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}"><rect class="soilbed" x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="${.2*u}"/>${ln}</g>`}
-  for(const p of plants){
+  for(const p of plants){if(p.kind!=='siepe'||!Array.isArray(p.pts)||p.pts.length<2)continue;const st2=pst(p),P=p.pts.map(q=>toS(+q.x,+q.y).join(',')).join(' '),sw=Math.max(.9,.75*u);
+    const mid=p.pts[Math.floor((p.pts.length-1)/2)],mid2=p.pts[Math.floor((p.pts.length-1)/2)+1]||mid,[mx,my]=toS((+mid.x+ +mid2.x)/2,(+mid.y+ +mid2.y)/2);const nm=String(p.name||'');
+    g+=`<g class="hedge k-${st2.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}"><polyline class="hx" points="${P}" stroke-width="${2.6*u}"/><polyline class="hb" points="${P}" stroke-width="${sw+.5*u}"/><polyline class="hl" points="${P}" stroke-width="${sw}"/><text x="${mx}" y="${my+2.2*u}" style="font-size:${1.15*u}px;stroke-width:${.4*u}px">${esc(nm.length>16?nm.slice(0,15)+'…':nm)}</text></g>`}
+  if(mode==='hedge'&&hedgePts.length){const P=hedgePts.map(q=>toS(q.x,q.y));g+=`<polyline class="draft" points="${P.map(q=>q.join(',')).join(' ')}" style="stroke-width:${.5*u}px;stroke-dasharray:${.8*u} ${.5*u}"/>`+P.map(q=>`<circle class="draftp" cx="${q[0]}" cy="${q[1]}" r="${.55*u}" style="stroke-width:${.15*u}px"/>`).join('')}
+  for(const p of plants){if(p.kind==='siepe'&&Array.isArray(p.pts)&&p.pts.length>=2)continue;
     const s=pst(p),[x,y]=toS(Number(p.x)||0,Number(p.y)||0),nm=String(p.name||'');
     g+=`<g class="pin k-${s.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}" transform="translate(${x} ${y}) scale(${u})"><circle class="hit" r="2.3"/><circle class="pulse" r="1.2"/><circle class="ring" r="2"/>${pinIcon(p.kind)}<text y="${p.kind==='orto'?2.7:ptOf(p.kind)?3.15:2.9}">${esc(nm.length>14?nm.slice(0,13)+'…':nm)}</text></g>`;
   }
@@ -368,25 +380,31 @@ function svgPt(e){const m=svg.getScreenCTM();if(!m)return null;const p=new DOMPo
   return{x:Math.round(Math.min(L,Math.max(0,x))*10)/10,y:Math.round(Math.min(W,Math.max(0,y))*10)/10}}
 svg.addEventListener('click',e=>{
   const pin=e.target.closest('[data-id]'),pt=svgPt(e);
-  const shp=shapeOf(curF());if((mode==='add'||mode==='move')&&pt&&shp&&!inPoly(pt,shp)){toast('Tocca un punto dentro la forma del terreno');return}
+  const shp=shapeOf(curF());if((mode==='add'||mode==='move'||mode==='hedge')&&pt&&shp&&!inPoly(pt,shp)){toast('Tocca un punto dentro la forma del terreno');return}
+  if(mode==='hedge'){if(pt){hedgePts.push(pt);setMode('hedge',moveId,true)}return}
   if(mode==='add'){const k=addKind;setMode('view');if(pt)plantForm(null,pt,k);return}
   if(mode==='move'){const id=moveId;setMode('view');if(pt)movePlant(id,pt);return}
   if(!pin)return;const id=pin.dataset.id;
   if(mode==='select'){sel.has(id)?sel.delete(id):sel.add(id);renderSel();drawField();return}
   openPlant(id);
 });
-function setMode(m,id){
-  mode=m;moveId=id||null;document.body.className=m==='view'?'':'m-'+m;
+function setMode(m,id,keep){
+  if(!keep)hedgePts=[];mode=m;moveId=id||null;document.body.className=m==='view'?'':'m-'+m;
   $('#bAdd').classList.toggle('on',m==='add'&&!addKind);$('#bBed').classList.toggle('on',m==='add'&&addKind==='orto');$('#bSel').classList.toggle('on',m==='select');
-  $('#bCancel').hidden=!(m==='add'||m==='move');
-  $('#hint').textContent=m==='add'?(addKind==='orto'?'Tocca il punto dove sta il centro dell’orto.':'Tocca il punto del campo dove si trova la nuova pianta.'):m==='move'?'Tocca la nuova posizione di “'+(byId(id)?.name||'')+'”.':m==='select'?'Tocca le piante che hai innaffiato, poi conferma in basso.':'Tocca una pianta per vedere quando è stata innaffiata.';
+  $('#bCancel').hidden=!(m==='add'||m==='move'||m==='hedge');$('#bDone').hidden=!(m==='hedge'&&hedgePts.length>=2);$('#bHedge').classList.toggle('on',m==='hedge');
+  $('#hint').textContent=m==='add'?(addKind==='orto'?'Tocca il punto dove sta il centro dell’orto.':'Tocca il punto del campo dove si trova la nuova pianta.'):m==='hedge'?(hedgePts.length===0?'Tocca il punto dove inizia la siepe.':hedgePts.length===1?'Ora tocca dove finisce. Se la siepe fa una curva, tocca anche gli angoli in mezzo.':`Siepe di ${Math.round(hedgeLen({pts:hedgePts}))} m: tocca altri punti per continuarla, oppure “Fine”.`):m==='move'?'Tocca la nuova posizione di “'+(byId(id)?.name||'')+'”.':m==='select'?'Tocca le piante che hai innaffiato, poi conferma in basso.':'Tocca una pianta per vedere quando è stata innaffiata.';
   if(m!=='select'){sel.clear();drawField()}
+  if(m==='hedge')$('#fw').scrollIntoView({block:'nearest'});
   renderSel();
 }
 function renderSel(){$('#selbar').hidden=mode!=='select';$('#selN').textContent=sel.size===1?'1 selezionata':sel.size+' selezionate';$('#bWaterSel').disabled=!sel.size}
 $('#bAdd').onclick=()=>{if(guard()){addKind='';setMode(mode==='add'?'view':'add')}};
 $('#bBed').onclick=()=>{if(guard()){addKind='orto';setMode(mode==='add'?'view':'add')}};
 $('#bSel').onclick=()=>setMode(mode==='select'?'view':'select');
+$('#bHedge').onclick=()=>{if(guard())setMode(mode==='hedge'?'view':'hedge')};
+$('#bDone').onclick=async()=>{if(hedgePts.length<2)return;const pts=hedgePts.map(q=>({x:q.x,y:q.y})),id=moveId,mid=pts[Math.floor((pts.length-1)/2)];setMode('view');
+  if(id){if(!guard())return;try{await db.doc('plants/'+id).update({pts,x:mid.x,y:mid.y});toast('Siepe ridisegnata: '+hedgeLen({pts})+' m')}catch(e){fail(e)}}
+  else plantForm(null,{x:mid.x,y:mid.y,pts},'siepe')};
 $('#bCancel').onclick=$('#bSelX').onclick=()=>setMode('view');
 $('#bWaterSel').onclick=async()=>{const ids=[...sel];setMode('view');await water(ids)};
 
@@ -422,8 +440,10 @@ sh.addEventListener('click',e=>{if(e.target.closest('[data-close]')||(e.target==
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!sh.hidden){if(!$('#nf'))closeSheet()}else if(mode!=='view')setMode('view')}});
 const KINDS=[['campo','Campo','Alberi e piante su un terreno grande',100,30],['orto','Orto','Ortaggi in file o aiuole',20,10],['giardino','Giardino','Prato, siepi, fiori',25,15],['vaso','Terrazzo o vasi','Piante in vaso',8,4]];
 const kindName=k=>(KINDS.find(x=>x[0]===k)||[0,{frutteto:'Frutteto',altro:'Altro'}[k]||'Terreno'])[1];
-const PT=[['ulivo','Ulivo','U',14],['ciliegio','Ciliegio','C',7],['fico','Fico','F',7],['albero','Albero','A',14],['fiori','Fiori','✿',2],['orto','Orto','O',1]];
-const ptOf=k=>PT.find(x=>x[0]===k);const ptName=k=>(ptOf(k)||[0,k||''])[1];
+const PT=[['ulivo','Ulivo','U',14,'Ulivo'],['ciliegio','Ciliegio','C',7,'Ciliegio'],['fico','Fico','F',7,'Fico'],['frutto','Altro albero da frutto','A',7,'Albero da frutto'],['siepe','Siepe','S',7,'Siepe',1],['fiori','Fiori','✿',2,'Fiori'],['orto','Orto','O',1,'Orto'],['albero','Albero','A',14,'Albero',1]];
+const KIND_RX=[['ulivo',/\b(ulivo|ulivi|olivo|olivi)\b/],['ciliegio',/cilieg|amaren|viscio/],['fico',/\bfic(o|hi)\b/],['siepe',/siep|lauro|alloro|bosso|pittosfor|fotinia|ligustr|viburn|eleagn|biancospin|cipress|tuia|thuja/],['frutto',/albicocc|\bpesc[oh]|nettarin|\bmel[oi]\b|\bper[oi]\b|susin|prugn|mandorl|\bnoc[ei]|nocciol|kaki|\bcac[oh]i?\b|melogran|limon|aranc|mandarin|clementin|kiwi|nespol|giuggiol|gelso|castagn|cotogn|\bvit[ei]\b|\buva\b|lampon|mirtill|ribes|pompelm|azzeruol|sorbo|frutt/],['fiori',/fior|\bros[ae]\b|lavand|gerani|ortensi|gelsomin|tulipan|margherit|aiuol/],['orto',/\borto\b/]];
+const kindFromName=n=>{n=String(n||'').toLowerCase();const m=KIND_RX.find(([k,rx])=>rx.test(n));return m?m[0]:''};
+const ptOf=k=>PT.find(x=>x[0]===k);const hedgeLen=p=>{const P=Array.isArray(p.pts)?p.pts:[];let t=0;for(let i=1;i<P.length;i++)t+=Math.hypot(P[i].x-P[i-1].x,P[i].y-P[i-1].y);return Math.round(t*10)/10};const ptName=k=>(ptOf(k)||[0,k||''])[1];
 const FREQ=[[1,'Ogni giorno'],[2,'Ogni 2 giorni'],[3,'Ogni 3 giorni'],[4,'Ogni 4 giorni'],[5,'Ogni 5 giorni'],[7,'Ogni settimana'],[10,'Ogni 10 giorni'],[14,'Ogni 2 settimane'],[21,'Ogni 3 settimane'],[30,'Ogni mese'],[0,'Nessun promemoria']];
 const VEG=[['Pomodoro',[4,5]],['Zucchina',[4,5,6]],['Melanzana',[5]],['Peperone',[5]],['Cetriolo',[5,6]],['Fagiolino',[4,5,6,7]],['Fagiolo',[4,5,6]],['Zucca',[4,5]],['Patata',[3,4]],['Insalata',[2,3,4,5,6,7,8,9,10]],['Rucola',[3,4,5,6,7,8,9,10]],['Radicchio',[6,7,8]],['Cicoria',[6,7,8]],['Spinaci',[2,3,9,10,11]],['Bietola',[3,4,5,6,7,8,9]],['Cavolfiore',[6,7,8]],['Broccolo',[6,7,8]],['Cavolo nero',[7,8]],['Verza',[6,7,8]],['Finocchio',[6,7,8]],['Carota',[2,3,4,5,6,7]],['Ravanello',[3,4,5,6,7,8,9]],['Sedano',[5,6]],['Porro',[6,7]],['Cipolla',[2,3,10,11]],['Aglio',[10,11,12,1,2]],['Fave',[10,11,2]],['Piselli',[10,11,2,3]],['Fragola',[3,8,9,10]],['Basilico',[4,5,6]],['Prezzemolo',[3,4,5,6,7,8,9]]];
 const vegNow=()=>{const m=new Date().getMonth()+1;return VEG.filter(v=>v[1].includes(m)).map(v=>v[0])};
@@ -434,6 +454,8 @@ function pinIcon0(k){
   if(k==='ulivo')return`<path class="trunk" d="M.05 1.6C-.15 1.1.25.8.0.25M.02.6C.3.45.5.2.55-.05M-.02.5C-.3.35-.5.15-.55-.1"/>${OLV.replace('C','halo')}${OLV.replace('C','dot nos')}<g class="olv"><circle cx="-.8" cy="-.4" r=".14"/><circle cx=".7" cy="-.45" r=".14"/><circle cx="-.1" cy="-1.05" r=".14"/></g>`;
   if(k==='fiori'){const P=[0,72,144,216,288].map(a=>`<circle cx="${(.55*Math.sin(a*Math.PI/180)).toFixed(2)}" cy="${(-.45-.55*Math.cos(a*Math.PI/180)).toFixed(2)}" r=".42"/>`).join('');return'<path class="stem" d="M0 1.5V.2"/><g class="halo">'+P+'</g><g class="dot nos">'+P+'</g><circle class="core" cx="0" cy="-.45" r=".3"/>'}
   if(k==='orto')return'<rect class="dot" x="-1.1" y="-1.1" width="2.2" height="2.2" rx=".4"/><path class="sprout" d="M0 .6V-.1M0 .1C-.5 .1-.7-.3-.7-.6-.3-.6 0-.4 0 .1M0-.1C0-.5.3-.8.7-.8.7-.4.4-.1 0-.1"/>';
+  if(k==='siepe')return'<path class="hedge-ic" d="M-1.5 .4L1.5 -.4"/>';
+  if(k==='frutto')return'<rect class="trunk-r" x="-.18" y=".35" width=".36" height="1.2" rx=".1"/><circle class="dot" cx="0" cy="-.45" r="1.1"/><g class="fr"><circle cx="-.45" cy="-.55" r=".2"/><circle cx=".35" cy="-.75" r=".2"/><circle cx=".2" cy="-.05" r=".2"/></g>';
   if(ptOf(k))return'<rect class="trunk-r" x="-.18" y=".35" width=".36" height="1.2" rx=".1"/><circle class="dot" cx="0" cy="-.45" r="1.1"/><path class="shine" d="M-.55-.75A.75.75 0 0 1-.05-1.2"/>';
   return'<circle class="dot" r="1.2"/>';
 }
@@ -441,9 +463,9 @@ const head=(t,sub)=>`<div class="sh-head"><div><h3>${esc(t)}</h3>${sub?`<p class
 function advBox(p){
   const a=advice(p.kind,p.age),w=wxInfo(p.fieldId,thOf(p.kind)),m=MESI[new Date().getMonth()];
   const freq=a.iv?`ogni ${a.iv===1?'giorno':a.iv+' giorni'}`:'di solito non serve, basta la pioggia';
-  const ar=bedArea(p),q=a.per==='m²'?`circa ${a.lit} litri per m²${ar?` (${Math.round(a.lit*ar)} litri per tutto l'orto, ${ar} m²)`:''}`:`circa ${a.lit} litri, lentamente alla base`;
+  const ar=bedArea(p),hl=hedgeLen(p),q=a.per==='m'?`circa ${a.lit} litri per metro di siepe${hl?` (${Math.round(a.lit*hl)} litri per tutta la siepe, ${hl} m)`:''}`:a.per==='m²'?`circa ${a.lit} litri per m²${ar?` (${Math.round(a.lit*ar)} litri per tutto l'orto, ${ar} m²)`:''}`:`circa ${a.lit} litri, lentamente alla base`;
   const rain=w?`<br>Ultima pioggia utile (≥${thOf(p.kind)} mm): ${w.last?esc(rel(w.last.d.toISOString()).replace(/ alle.*/,''))+' · '+w.last.mm+' mm':'nessuna nell\'ultimo mese'}${w.soon?` · in arrivo ${w.soon.mm} mm ${w.soon.when}`:''}.`:'';
-  return`<div class="adv"><b>Consiglio per ${m}${isTree(p.kind)?' · '+esc(ptName(p.kind).toLowerCase())+' '+esc(ageName(p.age)):''}</b>Innaffiare ${freq}; quantità ${q}.${rain}</div>`;
+  return`<div class="adv"><b>Consiglio per ${m}${isTree(p.kind)?' · '+esc(ptName(p.kind).toLowerCase())+' '+esc(p.kind==='siepe'?ageName(p.age).replace(/o$/,'a'):ageName(p.age)):''}</b>Innaffiare ${freq}; quantità ${q}.${rain}</div>`;
 }
 let cropRep=null;
 function cropsBox(p){
@@ -482,43 +504,43 @@ function openPlant(id){if(cropFor!==id){cropRep=null;cropFor=id}
   <h4>Attività</h4><ul class="mini">${pt.map(t=>`<li>${esc(t.title)} — <span class="st-${tst(t).k}">${esc(tst(t).t)}</span></li>`).join('')||'<li class="muted">Nessuna attività aperta</li>'}</ul>
   <div class="row"><button class="btn sm" id="shT">+ Attività per questa pianta</button></div>
   <h4>Ultime registrazioni</h4><ul class="mini">${hist.map(l=>`<li>${esc(rel(l.at))} · ${l.type==='water'?'innaffiata':esc(l.label)} · ${esc(nameOf(l.by))}</li>`).join('')||'<li class="muted">Ancora niente</li>'}</ul>
-  <div class="row" id="shAct"><button class="btn" id="shE">Modifica</button><button class="btn" id="shM">Sposta sulla mappa</button><button class="btn danger" id="shD">Elimina</button></div>`,()=>openPlant(id));
+  <div class="row" id="shAct"><button class="btn" id="shE">Modifica</button><button class="btn" id="shM">${p.kind==='siepe'?'Ridisegna sulla mappa':'Sposta sulla mappa'}</button><button class="btn danger" id="shD">Elimina</button></div>`,()=>openPlant(id));
   $('#shW').onclick=()=>water([id]);if(p.kind==='orto')bindCrops(p);
   $('#shT').onclick=()=>taskForm(null,id);
   $('#shE').onclick=()=>plantForm(p);
-  $('#shM').onclick=()=>{if(!guard())return;closeSheet();show('mappa');setMode('move',id)};
+  $('#shM').onclick=()=>{if(!guard())return;closeSheet();show('mappa');setMode(p.kind==='siepe'?'hedge':'move',id)};
   $('#shD').onclick=()=>{$('#shAct').innerHTML=`<span>Eliminare “${esc(p.name)}”? Lo storico resta.</span><button class="btn danger" id="shY">Sì, elimina</button><button class="btn" id="shN">No</button>`;
     $('#shN').onclick=()=>openPlant(id);
     $('#shY').onclick=async()=>{if(!guard())return;try{await db.doc('plants/'+id).delete();for(const t of tasks.filter(t=>t.plantId===id))await db.doc('tasks/'+t.id).update({plantId:null});closeSheet();toast('Pianta eliminata')}catch(e){fail(e)}}};
 }
 function plantForm(p,pt,kind){
   if(!guard())return;let lastK='';try{lastK=localStorage.getItem('campo-lastkind')||''}catch(e){}
-  const v=p||{name:'',kind:kind||(ptOf(lastK)&&lastK!=='orto'?lastK:''),interval:-1,age:'adulto',x:pt.x,y:pt.y,notes:''};
+  const v=p||{name:'',kind:kind||(ptOf(lastK)&&!['orto','siepe'].includes(lastK)?lastK:''),interval:-1,age:'adulto',x:pt.x,y:pt.y,pts:pt.pts||null,notes:''};
   const FR=[[-1,'Automatica: consigliata per stagione e meteo']].concat(FREQ);const fr=FR.some(f=>f[0]===+v.interval)?FR:FREQ.concat([[+v.interval,'Ogni '+(+v.interval)+' giorni']]);
-  sheet(head(p?(p.kind==='orto'?'Modifica orto':'Modifica pianta'):(v.kind==='orto'?'Nuovo orto':'Nuova pianta'))+`<form id="pf">
-  <label for="fK">Pianta</label><select id="fK" required><option value="">Scegli…</option>${PT.map(t=>`<option value="${t[0]}"${t[0]===v.kind?' selected':''}>${t[1]}</option>`).join('')}${v.kind&&!ptOf(v.kind)?`<option value="${esc(v.kind)}" selected>${esc(v.kind)}</option>`:''}</select>
-  <div id="fAgeW"><label for="fA">Età dell'albero</label><select id="fA">${AGES.map(a=>`<option value="${a[0]}"${a[0]===ageOf(v.age)?' selected':''}>${a[1]}</option>`).join('')}</select></div>
+  sheet(head(p?(p.kind==='orto'?'Modifica orto':p.kind==='siepe'?'Modifica siepe':'Modifica pianta'):(v.kind==='orto'?'Nuovo orto':v.kind==='siepe'?'Nuova siepe':'Nuova pianta'),v.kind==='siepe'&&v.pts?'Lunga '+hedgeLen(v)+' m':'')+`<form id="pf">
+  <label for="fK">Pianta</label><select id="fK" required><option value="">Scegli…</option>${PT.filter(t=>!t[5]||t[0]===v.kind||(t[0]==='siepe'&&v.pts)).filter(t=>t[0]!=='siepe'||v.pts).map(t=>`<option value="${t[0]}"${t[0]===v.kind?' selected':''}>${t[1]}</option>`).join('')}${v.kind&&!ptOf(v.kind)?`<option value="${esc(v.kind)}" selected>${esc(v.kind)}</option>`:''}</select>
+  <div id="fAgeW"><label for="fA">Età</label><select id="fA">${AGES.map(a=>`<option value="${a[0]}"${a[0]===ageOf(v.age)?' selected':''}>${a[1]}</option>`).join('')}</select></div>
   <div id="fBedW"><label>Dimensioni dell'orto (m)</label><div class="two"><div><input id="fBw" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" value="${esc(v.w||4)}" aria-label="Lunghezza in metri"></div><div><input id="fBh" type="number" min="0.5" max="200" step="0.5" inputmode="decimal" value="${esc(v.h||2)}" aria-label="Larghezza in metri"></div></div>
   <div class="presets">${[[2,1],[3,2],[4,2],[5,3],[8,4],[10,5]].map(([a,b])=>`<button type="button" class="btn sm" data-ps="${a}x${b}">${a}×${b}</button>`).join('')}</div><p class="muted">Lunghezza × larghezza. Poi lo vedi disegnato sulla mappa; potrai cambiarlo quando vuoi.</p></div>
-  <label for="fN">Nome</label><input id="fN" maxlength="60" value="${esc(v.name)}" placeholder="es. Ulivo vicino al cancello">
+  <label for="fN">Nome</label><input id="fN" maxlength="60" value="${esc(v.name)}" placeholder="es. Ulivo vicino al cancello"><p class="muted" id="fKHint" hidden></p>
   <label for="fI">Frequenza di innaffiatura</label><select id="fI">${fr.map(f=>`<option value="${f[0]}"${f[0]===+v.interval?' selected':''}>${f[1]}</option>`).join('')}</select><p class="muted" id="fHint"></p>
   <label for="fO">Note</label><textarea id="fO" rows="2" maxlength="500">${esc(v.notes)}</textarea>
   ${p?'':'<label><input type="checkbox" id="fW" style="width:auto;min-height:0;margin-right:8px">Già innaffiata oggi</label>'}
   <div class="row"><button class="btn primary" type="submit">Salva</button><button class="btn" type="button" data-close>Annulla</button></div></form>`);
   const hint=()=>{const k=$('#fK').value;$('#fAgeW').hidden=!isTree(k);$('#fBedW').hidden=k!=='orto';if(!k){$('#fHint').textContent='';return}const a=advice(k,$('#fA').value);
-    $('#fHint').textContent=`Consiglio per ${MESI[new Date().getMonth()]}: ${a.iv?'ogni '+(a.iv===1?'giorno':a.iv+' giorni'):'di solito non serve innaffiare'}, circa ${a.lit} litri${a.per==='m²'?' per m²':''}.`};
+    $('#fHint').textContent=`Consiglio per ${MESI[new Date().getMonth()]}: ${a.iv?'ogni '+(a.iv===1?'giorno':a.iv+' giorni'):'di solito non serve innaffiare'}, circa ${a.lit} litri${a.per==='m²'?' per m²':a.per==='m'?' per metro':''}.`};
   $('#fA').onchange=hint;$('#fI').onchange=hint;
   shIn.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{const[a,c]=b.dataset.ps.split('x');$('#fBw').value=a;$('#fBh').value=c});
-  const autoName=k=>{const t=ptOf(k);if(!t)return '';const re=new RegExp('^'+t[1]+' (\\d+)$','i');let mx=0;for(const q of allP)if(q.fieldId===fid&&(!p||q.id!==p.id)){const m=String(q.name||'').match(re);if(m)mx=Math.max(mx,+m[1])}return t[1]+' '+(mx+1)};
-  let nameAuto=!p||!$('#fN').value;$('#fN').oninput=()=>{nameAuto=!$('#fN').value};
+  const autoName=k=>{const t=ptOf(k);if(!t)return '';const sn=t[4]||t[1],re=new RegExp('^'+sn+' (\\d+)$','i');let mx=0;for(const q of allP)if(q.fieldId===fid&&(!p||q.id!==p.id)){const m=String(q.name||'').match(re);if(m)mx=Math.max(mx,+m[1])}return sn+' '+(mx+1)};
+  let nameAuto=!p||!$('#fN').value,kindTouched=!!p;$('#fN').oninput=()=>{nameAuto=!$('#fN').value;if(kindTouched||nameAuto)return;const k=kindFromName($('#fN').value);const ok=k&&[...$('#fK').options].some(o=>o.value===k);if(ok){if($('#fK').value!==k){$('#fK').value=k;hint()}$('#fKHint').hidden=false;$('#fKHint').textContent='Tipo riconosciuto dal nome: '+ptName(k)+'. Puoi cambiarlo dal menu.'}else $('#fKHint').hidden=true};
   const syncK=()=>{const k=$('#fK').value;if(nameAuto&&!p){$('#fN').value=autoName(k)}$('#fN').placeholder='es. Ulivo vicino al cancello';hint()};hint();
-  $('#fK').onchange=syncK;if(!p){syncK();($('#fK').value?$('#pf button[type=submit]'):$('#fK')).focus()}
+  $('#fK').onchange=()=>{kindTouched=true;$('#fKHint').hidden=true;syncK()};if(!p){syncK();($('#fK').value?$('#pf button[type=submit]'):$('#fK')).focus()}
   $('#pf').onsubmit=async e=>{e.preventDefault();const k=$('#fK').value;if(!k)return;
     try{localStorage.setItem('campo-lastkind',k)}catch(e){}
     const d={kind:k,name:$('#fN').value.trim()||autoName(k)||ptName(k),interval:Math.max(-1,+$('#fI').value||0),age:isTree(k)?$('#fA').value:null,...(k==='orto'?{w:Math.max(.5,+$('#fBw').value||4),h:Math.max(.5,+$('#fBh').value||2)}:{}),notes:$('#fO').value.trim()};
     try{if(p){await db.doc('plants/'+p.id).update(d);openPlant(p.id)}
-      else{const w=$('#fW').checked,at=new Date().toISOString();const r=await db.collection('plants').add({...d,x:v.x,y:v.y,fieldId:fid,createdAt:at,createdBy:uid,lastWatered:w?at:null,lastBy:w?uid:null});
-        if(w)await db.collection('log').add({type:'water',fieldId:fid,plantId:r.id,label:d.name,at,by:uid});closeSheet();toast('Pianta aggiunta')}}catch(e){fail(e)}};
+      else{const w=$('#fW').checked,at=new Date().toISOString();const r=await db.collection('plants').add({...d,x:v.x,y:v.y,...(v.pts?{pts:v.pts}:{}),fieldId:fid,createdAt:at,createdBy:uid,lastWatered:w?at:null,lastBy:w?uid:null});
+        if(w)await db.collection('log').add({type:'water',fieldId:fid,plantId:r.id,label:d.name,at,by:uid});closeSheet();toast(k==='siepe'?'Siepe aggiunta':'Pianta aggiunta')}}catch(e){fail(e)}};
 }
 function taskForm(t,plantId){
   if(!guard())return;const v=t||{title:'',plantId:plantId||'',due:ymd(new Date()),repeat:0,notes:''};
@@ -551,7 +573,7 @@ function applyField(){
   $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');$('#fKind').textContent=f?kindName(f.kind)+' · '+L+' × '+W+' m':'Terreno';
   refresh();if(f){loadWx(f);if(f.lat!=null)loadAlerts()}
 }
-const lgDone=(()=>{const el=document.getElementById('lgIcons');if(el)el.innerHTML=[['ulivo','Ulivo'],['albero','Altri alberi'],['fiori','Fiori'],['orto','Orto']].map(([k,t])=>`<span class="lg"><svg viewBox="-2 -2 4 4"><g class="pin k-ok">${pinIcon(k)}</g></svg>${t}</span>`).join(' ');return 1})();
+const lgDone=(()=>{const el=document.getElementById('lgIcons');if(el)el.innerHTML=[['ulivo','Ulivo'],['frutto','Alberi da frutto'],['siepe','Siepi'],['fiori','Fiori'],['orto','Orto']].map(([k,t])=>`<span class="lg"><svg viewBox="-2 -2 4 4"><g class="pin k-ok">${pinIcon(k)}</g></svg>${t}</span>`).join(' ');return 1})();
 const kindIco=k=>({campo:'<path d="M3 26h28M9 26V14m0 0c-4 0-5-6 0-8 5 2 4 8 0 8Zm16 12V12m0 0c-5 0-6-7 0-9 6 2 5 9 0 9Z"/>',orto:'<path d="M4 26h26M8 26c0-5 2-8 5-9m-5 9c4 0 6-3 5-9m6 9c0-6 3-9 7-10-1 5-3 9-7 10Z"/>',giardino:'<path d="M17 26v-9m0 0a4 4 0 1 1 4-4 4 4 0 1 1-8 0 4 4 0 0 1 4 4ZM4 26h26"/>',frutteto:'<path d="M17 26V15m-7-1a7 7 0 1 1 14 0c0 4-3 5-7 5s-7-1-7-5Zm3-1h.01M20 11h.01M4 26h26"/>',vaso:'<path d="M10 18h14l-2 9H12Zm7 0v-6m0 0c-4 0-5-5-1-7 2 2 3 6 1 7Z"/>',altro:'<rect x="5" y="9" width="24" height="16" rx="2"/><path d="M5 17h24M17 9v16"/>'}[k]||'');
 function renderKinds(){$('#kinds').innerHTML=KINDS.map(k=>`<button class="kind" data-kind="${k[0]}"><svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${kindIco(k[0])}</svg><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}
 renderKinds();
@@ -707,7 +729,7 @@ function renderTodo(){
 }
 function renderPlants(){
   const f=q.toLowerCase(),l=plants.filter(p=>!f||(String(p.name)+' '+ptName(p.kind)).toLowerCase().includes(f)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  $('#plantList').innerHTML=l.map(p=>{const s=pst(p);return`<li><i class="dotc ${s.k}"></i><button class="item" data-open="${esc(p.id)}"><b>${esc(p.name)}</b><span>${p.kind?esc(ptName(p.kind))+(bedArea(p)?' '+bedArea(p)+' m²':'')+(p.crops&&p.crops.length?' ('+esc(p.crops.map(c=>c.name).join(', '))+')':'')+' · ':''}<span class="st-${s.k}">${esc(s.t)}</span></span></button><button class="btn sm" data-water="${esc(p.id)}">Innaffiata</button></li>`}).join('')||`<li class="empty">${plants.length?'Nessuna pianta corrisponde.':'Nessuna pianta ancora: vai su Mappa e tocca “+ Pianta”.'}</li>`;
+  $('#plantList').innerHTML=l.map(p=>{const s=pst(p);return`<li><i class="dotc ${s.k}"></i><button class="item" data-open="${esc(p.id)}"><b>${esc(p.name)}</b><span>${p.kind?esc(ptName(p.kind))+(bedArea(p)?' '+bedArea(p)+' m²':'')+(hedgeLen(p)?' '+hedgeLen(p)+' m':'')+(p.crops&&p.crops.length?' ('+esc(p.crops.map(c=>c.name).join(', '))+')':'')+' · ':''}<span class="st-${s.k}">${esc(s.t)}</span></span></button><button class="btn sm" data-water="${esc(p.id)}">Innaffiata</button></li>`}).join('')||`<li class="empty">${plants.length?'Nessuna pianta corrisponde.':'Nessuna pianta ancora: vai su Mappa e tocca “+ Pianta”.'}</li>`;
 }
 function renderLog(){
   if(!log.length){$('#logList').innerHTML='<ul class="list"><li class="empty">Le innaffiature e le attività completate compariranno qui.</li></ul>';return}
