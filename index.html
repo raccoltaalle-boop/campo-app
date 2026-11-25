@@ -244,7 +244,7 @@ if(!window.claude&&!/(^|\.)claude(usercontent)?\.(ai|com)$/.test(location.hostna
       const v='https://www.gstatic.com/firebasejs/10.14.1/';
       await load(v+'firebase-app-compat.js');await load(v+'firebase-auth-compat.js');await load(v+'firebase-firestore-compat.js');
       firebase.initializeApp(FIREBASE_CONFIG);const cred=await firebase.auth().signInAnonymously();uid=cred.user.uid;
-      db=firebase.firestore();try{db.settings({ignoreUndefinedProperties:true,merge:true})}catch(e){}try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
+      db=firebase.firestore();try{const Q=firebase.firestore.Query.prototype,os=Q.onSnapshot;Q.onSnapshot=function(a,b,c){return typeof a==='function'?os.call(this,{includeMetadataChanges:true},a,b):os.apply(this,arguments)}}catch(e){}try{db.settings({ignoreUndefinedProperties:true,merge:true})}catch(e){}try{await db.enablePersistence({synchronizeTabs:true})}catch(e){}
     }else{db=localDb();window.CAMPO_LOCAL=true}
     const user={id:async()=>uid,me:async()=>({id:uid}),isOwner:async()=>true,canEdit:async()=>true,can:async()=>true,profiles:async()=>({})};
     return{db,user};
@@ -803,20 +803,20 @@ refresh();
 
 /* ---------- dati condivisi ---------- */
 (async()=>{
-  const timer=setTimeout(()=>note('I dati del campo non sono ancora raggiungibili: controlla la connessione.'),10000);
+  const timer=setTimeout(()=>note(loaded.f?'Connessione assente o lenta: vedi gli ultimi dati salvati sul telefono. Le modifiche partono appena torna la rete.':'I dati del campo non sono ancora raggiungibili: controlla la connessione.'),12000);
   const C=window.claude;db=C?await C.use('db'):null;user=C?await C.use('user'):null;
   if(!db){clearTimeout(timer);note(window.claude&&!window.CAMPO_LOCAL&&FIREBASE_CONFIG?'Collegamento al database non riuscito: controlla la connessione e ricarica.':'Accedi a Claude per vedere e aggiornare i dati condivisi del campo.');$('#stats').textContent='Dati non disponibili';return}
   try{uid=user?await user.id():null;const cw=user?await user.can('data.write'):null;canWrite=cw!==false}catch(e){}
   if(!canWrite)note('Sei in sola lettura: chiedi al proprietario di condividerti l’app come Collaboratore.');
   const localNote=()=>window.CAMPO_LOCAL?'Modalità prova: i dati restano solo su questo dispositivo finché non colleghiamo il database condiviso.':'';
   if(window.CAMPO_LOCAL)note(localNote());
-  const ok=s=>{if(!s.metadata.fromCache&&loaded.f&&loaded.p&&loaded.t&&loaded.l){clearTimeout(timer);if(canWrite)note(localNote());migrate()}};
+  const srv={};const ok=(s,k)=>{if(k&&!s.metadata.fromCache)srv[k]=1;if(srv.f&&srv.p&&srv.t&&srv.l){clearTimeout(timer);if(canWrite)note(localNote());migrate()}};
   const err=()=>{clearTimeout(timer);note('Connessione ai dati interrotta: ricarica la pagina.')};
-  db.collection('fields').onSnapshot(s=>{fields=s.docs.map(d=>({...d.data(),id:d.id}));loaded.f=1;if(!s.metadata.fromCache)fieldsLoaded=true;ok(s);applyField()},err);
+  db.collection('fields').onSnapshot(s=>{fields=s.docs.map(d=>({...d.data(),id:d.id}));loaded.f=1;if(!s.metadata.fromCache||fields.length)fieldsLoaded=true;ok(s,'f');applyField()},err);
   db.collection('people').onSnapshot(s=>{for(const k in people)delete people[k];s.docs.forEach(d=>{const n=d.data().name;if(n)people[d.id]=String(n)});if(!s.metadata.fromCache)loaded.u=1;applyField();checkName()},err);
-  db.collection('plants').onSnapshot(s=>{allP=s.docs.map(d=>({...d.data(),id:d.id}));loaded.p=1;ok(s);applyField()},err);
-  db.collection('tasks').onSnapshot(s=>{allT=s.docs.map(d=>({...d.data(),id:d.id}));loaded.t=1;ok(s);applyField()},err);
-  db.collection('log').orderBy('at','desc').limit(600).onSnapshot(s=>{allL=s.docs.map(d=>({...d.data(),id:d.id}));loaded.l=1;ok(s);applyField()},err);
+  db.collection('plants').onSnapshot(s=>{allP=s.docs.map(d=>({...d.data(),id:d.id}));loaded.p=1;ok(s,'p');applyField()},err);
+  db.collection('tasks').onSnapshot(s=>{allT=s.docs.map(d=>({...d.data(),id:d.id}));loaded.t=1;ok(s,'t');applyField()},err);
+  db.collection('log').orderBy('at','desc').limit(600).onSnapshot(s=>{allL=s.docs.map(d=>({...d.data(),id:d.id}));loaded.l=1;ok(s,'l');applyField()},err);
   let migrated=false;
   async function migrate(){
     if(migrated||!canWrite)return;const orphans=[...allP.filter(p=>!p.fieldId).map(p=>'plants/'+p.id),...allT.filter(t=>!t.fieldId).map(t=>'tasks/'+t.id),...allL.filter(l=>!l.fieldId).map(l=>'log/'+l.id)];
