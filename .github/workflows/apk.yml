@@ -1,0 +1,75 @@
+name: Compila APK
+
+# L'APK è solo il "guscio": l'interfaccia arriva da GitHub Pages e si aggiorna da sola.
+# Si ricompila solo quando cambia il codice Android.
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: '8.7'
+
+      - name: Chiave di firma
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then echo "ERRORE: mancano i secrets KEYSTORE_B64 / KEYSTORE_PASS (Settings > Secrets and variables > Actions)" | tee -a "$RUNNER_TEMP/build.log"; exit 1; fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Compila APK
+        env:
+          KS_FILE: ${{ runner.temp }}/release.jks
+          KS_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleRelease 2>&1 | tee -a "$RUNNER_TEMP/build.log"
+
+      - name: Pubblica sul branch dist
+        run: |
+          set -e
+          rm -rf /tmp/dist && mkdir -p /tmp/dist
+          cp app/build/outputs/apk/release/app-release.apk /tmp/dist/campo.apk
+          SHA=$(sha256sum /tmp/dist/campo.apk | cut -d' ' -f1)
+          cat > /tmp/dist/README.md <<MD
+          # Campo — APK
+          Scarica e installa: [campo.apk](https://github.com/${{ github.repository }}/raw/dist/campo.apk)
+
+          Build ${{ github.run_number }} · versione $(cat app/version.txt) · commit ${GITHUB_SHA::7} · SHA-256 \`$SHA\`
+          MD
+          cd /tmp/dist
+          git init -q && git checkout -q -b dist && git add -A
+          git -c user.name="campo-bot" -c user.email="campo-bot@users.noreply.github.com" commit -qm "APK build ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" dist
+
+      - name: Pubblica log errore
+        if: failure()
+        run: |
+          mkdir -p /tmp/logpub && cd /tmp/logpub
+          { echo "Build ${{ github.run_number }} - commit ${GITHUB_SHA::7} - $(date -u)"; echo; cat "$RUNNER_TEMP/build.log" 2>/dev/null | tail -400; } > build.log
+          git init -q && git checkout -q -b log && git add build.log
+          git -c user.name="campo-bot" -c user.email="campo-bot@users.noreply.github.com" commit -qm "Log build ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" log

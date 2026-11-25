@@ -19,3 +19,10 @@ modalità prova, con i dati salvati solo sul dispositivo.
 
 ## Installarla sul telefono
 Apri il link, poi dal menu del browser scegli "Aggiungi a schermata Home".
+
+## App Android
+**Scarica l'APK:** https://github.com/raccoltaalle-boop/campo-app/raw/dist/campo.apk
+
+L'APK è un guscio che apre la versione pubblicata su GitHub Pages: le modifiche all'app
+arrivano a tutti senza reinstallare. GitHub Actions ricompila l'APK solo quando cambia
+la cartella `android/` (firma con i secrets `KEYSTORE_B64` e `KEYSTORE_PASS`).

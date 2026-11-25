@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- campo -->
+    <path android:fillColor="#BFDBA9" android:pathData="M30,44h48a4,4 0,0 1,4 4v26a4,4 0,0 1,-4 4h-48a4,4 0,0 1,-4 -4v-26a4,4 0,0 1,4 -4z" />
+    <path android:strokeColor="#A6CA8D" android:strokeWidth="1.2" android:pathData="M45,44v34M58,44v34M71,44v34M26,61h56" />
+    <!-- alberelli -->
+    <path android:fillColor="#7A5533" android:pathData="M39,56h2v6h-2z M62,66h2v6h-2z" />
+    <path android:fillColor="#2B8A3E" android:strokeColor="#FFFFFF" android:strokeWidth="1.2" android:pathData="M40,47m-5,0a5,5 0,1 0,10 0a5,5 0,1 0,-10 0 M63,57m-5,0a5,5 0,1 0,10 0a5,5 0,1 0,-10 0" />
+    <!-- goccia -->
+    <path android:fillColor="#5AA9F0" android:strokeColor="#FFFFFF" android:strokeWidth="1.5" android:pathData="M72,28c0,0 -7,8.5 -7,13.5a7,7 0,0 0,14 0c0,-5 -7,-13.5 -7,-13.5z" />
+</vector>

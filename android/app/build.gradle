@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Versione dell'APK: si incrementa solo quando cambia il codice nativo.
+// L'interfaccia dell'app viene caricata da GitHub Pages e si aggiorna da sola.
+def apkVersion = file('version.txt').text.trim().toInteger()
+def env = { String k -> System.getenv(k) ?: '' }
+
+android {
+    namespace 'it.alex.campo'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'it.alex.campo'
+        minSdk 26
+        targetSdk 34
+        versionCode apkVersion
+        versionName "1.${apkVersion}"
+    }
+
+    signingConfigs {
+        release {
+            if (env('KS_FILE')) {
+                storeFile file(env('KS_FILE'))
+                storePassword env('KS_PASS')
+                keyAlias 'campo'
+                keyPassword env('KS_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig env('KS_FILE') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
