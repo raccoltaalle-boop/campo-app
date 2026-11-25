@@ -72,6 +72,12 @@ main{max-width:1240px;margin:0 auto;padding:16px max(4vw,12px) 120px}
 .pin .dot{fill:var(--ok);stroke:light-dark(#fff,#0e1510);stroke-width:.35}
 .k-today .dot{fill:var(--today)}.k-late .dot{fill:var(--late)}.k-never .dot{fill:#8a939b}
 .pin .ring{fill:none;stroke:var(--water);stroke-width:.45;opacity:0}.pin.on .ring{opacity:1}
+.pin .pulse{fill:none;stroke:none}.pin .halo{fill:#fff;stroke:#fff;stroke-width:.35}.pin .dot.nos{stroke:none}
+.pin .trunk{fill:none;stroke:#7a5533;stroke-width:.32;stroke-linecap:round}.pin .trunk-r{fill:#7a5533}
+.pin .stem{stroke:#2b8a3e;stroke-width:.22;stroke-linecap:round}.pin .core{fill:#ffe08a;stroke:#fff;stroke-width:.12}
+.pin .olv{fill:#3f4a2a;opacity:.75}.pin .shine{fill:none;stroke:#fff;stroke-width:.18;stroke-linecap:round;opacity:.55}
+.pin .sprout{fill:none;stroke:#fff;stroke-width:.2;stroke-linecap:round;stroke-linejoin:round}
+.lg svg{width:22px;height:22px;vertical-align:-6px;margin-right:4px;overflow:visible}
 .pin text.sym{font:800 1.25px Manrope,sans-serif;fill:#fff;stroke:none;dominant-baseline:central}
 .pin text{font:700 1.15px Manrope,sans-serif;fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--grass);stroke-width:.4}
 .k-late .pulse{fill:none;stroke:var(--late);stroke-width:.25;transform-box:fill-box;transform-origin:center;animation:p 2.2s ease-out infinite}
@@ -168,7 +174,7 @@ input,select,textarea{width:100%;font:16px Manrope,sans-serif;padding:10px 12px;
     </div>
     <div class="wx" id="wx" hidden></div>
     <div class="fieldwrap" id="fw"><svg id="field" role="img" aria-label="Mappa del campo"></svg></div>
-    <div class="legend"><span><i></i>A posto</span><span><i class="today"></i>Da innaffiare oggi</span><span><i class="late"></i>In ritardo</span><span><i class="never"></i>Mai innaffiata</span><span><i class="wait"></i>Pioggia in arrivo</span><span>U Ulivo · C Ciliegio · F Fico · A Albero · ✿ Fiori · ▪ Orto</span><span id="gridTxt">Griglia ogni 10 m</span></div>
+    <div class="legend"><span><i></i>A posto</span><span><i class="today"></i>Da innaffiare oggi</span><span><i class="late"></i>In ritardo</span><span><i class="never"></i>Mai innaffiata</span><span><i class="wait"></i>Pioggia in arrivo</span><span id="lgIcons"></span><span id="gridTxt">Griglia ogni 10 m</span></div>
   </section>
   <section id="v-da-fare" hidden>
     <h2>Da innaffiare</h2>
@@ -336,7 +342,7 @@ function drawField(){
     g+=`<g class="bed${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}"><rect class="soilbed" x="${rx}" y="${ry}" width="${rw}" height="${rh}" rx="${.2*u}"/>${ln}</g>`}
   for(const p of plants){
     const s=pst(p),[x,y]=toS(Number(p.x)||0,Number(p.y)||0),nm=String(p.name||'');
-    g+=`<g class="pin k-${s.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}" transform="translate(${x} ${y}) scale(${u})"><circle class="hit" r="2.3"/><circle class="pulse" r="1.2"/><circle class="ring" r="2"/>${(p.kind==='orto')?'<rect class="dot" x="-1.2" y="-1.2" width="2.4" height="2.4" rx=".4"/>':'<circle class="dot" r="1.2"/>'}<text class="sym" y=".05">${esc((ptOf(p.kind)||[0,0,''])[2])}</text><text y="2.9">${esc(nm.length>14?nm.slice(0,13)+'…':nm)}</text></g>`;
+    g+=`<g class="pin k-${s.k}${sel.has(p.id)?' on':''}" data-id="${esc(p.id)}" transform="translate(${x} ${y}) scale(${u})"><circle class="hit" r="2.3"/><circle class="pulse" r="1.2"/><circle class="ring" r="2"/>${pinIcon(p.kind)}<text y="${p.kind==='orto'?2.7:ptOf(p.kind)?3.15:2.9}">${esc(nm.length>14?nm.slice(0,13)+'…':nm)}</text></g>`;
   }
   svg.innerHTML=g;
 }
@@ -405,6 +411,15 @@ const FREQ=[[1,'Ogni giorno'],[2,'Ogni 2 giorni'],[3,'Ogni 3 giorni'],[4,'Ogni 4
 const VEG=[['Pomodoro',[4,5]],['Zucchina',[4,5,6]],['Melanzana',[5]],['Peperone',[5]],['Cetriolo',[5,6]],['Fagiolino',[4,5,6,7]],['Fagiolo',[4,5,6]],['Zucca',[4,5]],['Patata',[3,4]],['Insalata',[2,3,4,5,6,7,8,9,10]],['Rucola',[3,4,5,6,7,8,9,10]],['Radicchio',[6,7,8]],['Cicoria',[6,7,8]],['Spinaci',[2,3,9,10,11]],['Bietola',[3,4,5,6,7,8,9]],['Cavolfiore',[6,7,8]],['Broccolo',[6,7,8]],['Cavolo nero',[7,8]],['Verza',[6,7,8]],['Finocchio',[6,7,8]],['Carota',[2,3,4,5,6,7]],['Ravanello',[3,4,5,6,7,8,9]],['Sedano',[5,6]],['Porro',[6,7]],['Cipolla',[2,3,10,11]],['Aglio',[10,11,12,1,2]],['Fave',[10,11,2]],['Piselli',[10,11,2,3]],['Fragola',[3,8,9,10]],['Basilico',[4,5,6]],['Prezzemolo',[3,4,5,6,7,8,9]]];
 const vegNow=()=>{const m=new Date().getMonth()+1;return VEG.filter(v=>v[1].includes(m)).map(v=>v[0])};
 const bedArea=p=>p.kind==='orto'&&+p.w>0&&+p.h>0?Math.round(+p.w*+p.h*10)/10:0;
+const OLV='<g class="C"><ellipse cx="-.75" cy="-.45" rx=".8" ry=".5"/><ellipse cx=".75" cy="-.5" rx=".8" ry=".5"/><ellipse cx="-.15" cy="-1" rx=".95" ry=".55"/></g>';
+function pinIcon(k){return'<g transform="scale(1.3)">'+pinIcon0(k)+'</g>'}
+function pinIcon0(k){
+  if(k==='ulivo')return`<path class="trunk" d="M.05 1.6C-.15 1.1.25.8.0.25M.02.6C.3.45.5.2.55-.05M-.02.5C-.3.35-.5.15-.55-.1"/>${OLV.replace('C','halo')}${OLV.replace('C','dot nos')}<g class="olv"><circle cx="-.8" cy="-.4" r=".14"/><circle cx=".7" cy="-.45" r=".14"/><circle cx="-.1" cy="-1.05" r=".14"/></g>`;
+  if(k==='fiori'){const P=[0,72,144,216,288].map(a=>`<circle cx="${(.55*Math.sin(a*Math.PI/180)).toFixed(2)}" cy="${(-.45-.55*Math.cos(a*Math.PI/180)).toFixed(2)}" r=".42"/>`).join('');return'<path class="stem" d="M0 1.5V.2"/><g class="halo">'+P+'</g><g class="dot nos">'+P+'</g><circle class="core" cx="0" cy="-.45" r=".3"/>'}
+  if(k==='orto')return'<rect class="dot" x="-1.1" y="-1.1" width="2.2" height="2.2" rx=".4"/><path class="sprout" d="M0 .6V-.1M0 .1C-.5 .1-.7-.3-.7-.6-.3-.6 0-.4 0 .1M0-.1C0-.5.3-.8.7-.8.7-.4.4-.1 0-.1"/>';
+  if(ptOf(k))return'<rect class="trunk-r" x="-.18" y=".35" width=".36" height="1.2" rx=".1"/><circle class="dot" cx="0" cy="-.45" r="1.1"/><path class="shine" d="M-.55-.75A.75.75 0 0 1-.05-1.2"/>';
+  return'<circle class="dot" r="1.2"/>';
+}
 const head=(t,sub)=>`<div class="sh-head"><div><h3>${esc(t)}</h3>${sub?`<p class="muted">${esc(sub)}</p>`:''}</div><button class="x" data-close aria-label="Chiudi">×</button></div>`;
 function advBox(p){
   const a=advice(p.kind,p.age),w=wxInfo(p.fieldId,thOf(p.kind)),m=MESI[new Date().getMonth()];
@@ -516,6 +531,7 @@ function applyField(){
   $('#fName').textContent=f?f.name:(none?'Benvenuto':'I miei terreni');$('#fKind').textContent=f?kindName(f.kind)+' · '+L+' × '+W+' m':'Terreno';
   refresh();if(f)loadWx(f);
 }
+const lgDone=(()=>{const el=document.getElementById('lgIcons');if(el)el.innerHTML=[['ulivo','Ulivo'],['albero','Altri alberi'],['fiori','Fiori'],['orto','Orto']].map(([k,t])=>`<span class="lg"><svg viewBox="-2 -2 4 4"><g class="pin k-ok">${pinIcon(k)}</g></svg>${t}</span>`).join(' ');return 1})();
 const kindIco=k=>({campo:'<path d="M3 26h28M9 26V14m0 0c-4 0-5-6 0-8 5 2 4 8 0 8Zm16 12V12m0 0c-5 0-6-7 0-9 6 2 5 9 0 9Z"/>',orto:'<path d="M4 26h26M8 26c0-5 2-8 5-9m-5 9c4 0 6-3 5-9m6 9c0-6 3-9 7-10-1 5-3 9-7 10Z"/>',giardino:'<path d="M17 26v-9m0 0a4 4 0 1 1 4-4 4 4 0 1 1-8 0 4 4 0 0 1 4 4ZM4 26h26"/>',frutteto:'<path d="M17 26V15m-7-1a7 7 0 1 1 14 0c0 4-3 5-7 5s-7-1-7-5Zm3-1h.01M20 11h.01M4 26h26"/>',vaso:'<path d="M10 18h14l-2 9H12Zm7 0v-6m0 0c-4 0-5-5-1-7 2 2 3 6 1 7Z"/>',altro:'<rect x="5" y="9" width="24" height="16" rx="2"/><path d="M5 17h24M17 9v16"/>'}[k]||'');
 function renderKinds(){$('#kinds').innerHTML=KINDS.map(k=>`<button class="kind" data-kind="${k[0]}"><svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${kindIco(k[0])}</svg><b>${k[1]}</b><span>${k[2]}</span></button>`).join('')}
 renderKinds();
